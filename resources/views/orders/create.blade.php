@@ -39,7 +39,7 @@
         <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="font-semibold text-slate-800">Produits</h2>
-                <button type="button" @click="addItem()" class="text-sm text-indigo-600 hover:underline">+ Ajouter produit</button>
+                <button type="button" @click="addItem()" class="text-sm text-brand-600 hover:underline">+ Ajouter produit</button>
             </div>
             <template x-for="(item, index) in items" :key="index">
                 <div class="grid grid-cols-12 gap-3 mb-3 items-end">
@@ -61,7 +61,7 @@
             </template>
         </div>
 
-        <button type="submit" class="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">Créer la commande</button>
+        <button type="submit" class="px-6 py-2.5 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700">Créer la commande</button>
     </form>
 
     @push('scripts')

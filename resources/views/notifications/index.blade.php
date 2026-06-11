@@ -1,8 +1,8 @@
 <x-admin-layout title="Notifications">
-    <form method="POST" action="{{ route('notifications.read-all') }}" class="mb-4">@csrf<button type="submit" class="text-sm text-indigo-600">Tout marquer comme lu</button></form>
+    <form method="POST" action="{{ route('notifications.read-all') }}" class="mb-4">@csrf<button type="submit" class="text-sm text-brand-600">Tout marquer comme lu</button></form>
     <div class="bg-white rounded-xl border shadow-sm divide-y">
         @forelse($notifications as $notification)
-            <div class="px-5 py-4 {{ $notification->read_at ? 'opacity-60' : 'bg-indigo-50/30' }}">
+            <div class="px-5 py-4 {{ $notification->read_at ? 'opacity-60' : 'bg-brand-50/30' }}">
                 <div class="text-sm">{{ $notification->data['message'] ?? 'Notification' }}</div>
                 <div class="text-xs text-slate-500 mt-1">{{ $notification->created_at->diffForHumans() }}</div>
             </div>

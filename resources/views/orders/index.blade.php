@@ -6,10 +6,10 @@
                 <option value="">Tous statuts</option>
                 @foreach($statuses as $s)<option value="{{ $s->value }}" @selected(request('status') === $s->value)>{{ $s->label() }}</option>@endforeach
             </select>
-            <button type="submit" class="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm">Filtrer</button>
+            <button type="submit" class="px-4 py-2 btn-dark">Filtrer</button>
         </form>
         @if(auth()->user()->isSuperAdmin() || auth()->user()->isCommercial())
-            <a href="{{ route('orders.create') }}" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">+ Nouvelle commande</a>
+            <a href="{{ route('orders.create') }}" class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700">+ Nouvelle commande</a>
         @endif
     </div>
 
@@ -26,7 +26,7 @@
             <tbody class="divide-y divide-slate-100">
                 @forelse($orders as $order)
                     <tr class="hover:bg-slate-50">
-                        <td class="px-5 py-3"><a href="{{ route('orders.show', $order) }}" class="text-indigo-600 font-medium">{{ $order->reference }}</a></td>
+                        <td class="px-5 py-3"><a href="{{ route('orders.show', $order) }}" class="text-brand-600 font-medium">{{ $order->reference }}</a></td>
                         <td class="px-5 py-3">{{ $order->client->name }}</td>
                         <td class="px-5 py-3">{{ $order->commercial?->name ?? '-' }}</td>
                         <td class="px-5 py-3"><x-admin.status-badge :status="$order->status" /></td>

@@ -7,7 +7,7 @@
             <p><span class="text-slate-500">Marque:</span> {{ $product->brand?->name ?? '-' }}</p>
             <p><span class="text-slate-500">Stock:</span> <strong class="{{ $product->isLowStock() ? 'text-red-600' : '' }}">{{ $product->quantity }} {{ $product->unit }}</strong></p>
             <p><span class="text-slate-500">Valeur stock:</span> {{ number_format($product->stockValue(), 2, ',', ' ') }} DH</p>
-            <a href="{{ route('products.edit', $product) }}" class="inline-block mt-3 text-indigo-600 text-sm">Modifier</a>
+            <a href="{{ route('products.edit', $product) }}" class="inline-block mt-3 text-brand-600 text-sm">Modifier</a>
         </div>
         <div class="lg:col-span-2 bg-white rounded-xl border shadow-sm overflow-hidden">
             <div class="px-5 py-4 border-b font-semibold">Mouvements récents</div>

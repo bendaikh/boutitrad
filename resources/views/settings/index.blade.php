@@ -17,6 +17,6 @@
             </div>
         </div>
         <div><label class="text-sm text-slate-500">Pied de page facture</label><textarea name="invoice_footer" rows="2" class="w-full rounded-lg border-slate-300 text-sm">{{ $settings['invoice_footer'] }}</textarea></div>
-        <button type="submit" class="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm">Enregistrer</button>
+        <button type="submit" class="px-5 py-2 bg-brand-600 text-white rounded-lg text-sm">Enregistrer</button>
     </form>
 </x-admin-layout>

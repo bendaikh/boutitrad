@@ -16,6 +16,7 @@ class DashboardController extends Controller
         return view('dashboard', [
             'stats' => $this->dashboard->stats($user),
             'orderStatusChart' => $this->dashboard->orderStatusChart($user),
+            'orderDistributionChart' => $this->dashboard->orderDistributionChart($user),
             'monthlySalesChart' => $this->dashboard->monthlySalesChart($user),
             'commercialPerformance' => $this->dashboard->commercialPerformance($user),
             'livreurPerformance' => $this->dashboard->livreurPerformance($user),

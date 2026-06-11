@@ -3,3 +3,29 @@
 @tailwind utilities;
 
 [x-cloak] { display: none !important; }
+
+@layer components {
+    .admin-card {
+        @apply bg-white rounded-xl border border-slate-100 shadow-card;
+    }
+
+    .btn-primary {
+        @apply inline-flex items-center justify-center px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors;
+    }
+
+    .btn-secondary {
+        @apply inline-flex items-center justify-center px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors;
+    }
+
+    .btn-dark {
+        @apply inline-flex items-center justify-center px-4 py-2 bg-brand-800 text-white rounded-lg text-sm font-medium hover:bg-brand-900 transition-colors;
+    }
+
+    .form-input {
+        @apply rounded-lg border-slate-200 text-sm shadow-sm focus:border-brand-500 focus:ring-brand-500;
+    }
+
+    .link-brand {
+        @apply text-brand-600 font-medium hover:text-brand-700 transition-colors;
+    }
+}

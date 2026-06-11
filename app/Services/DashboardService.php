@@ -56,6 +56,45 @@ class DashboardService
             ->toArray();
     }
 
+    public function orderDistributionChart(?User $user = null): array
+    {
+        $pendingStatuses = array_map(fn (OrderStatus $s) => $s->value, OrderStatus::activeStatuses());
+
+        $query = Order::query()
+            ->where('created_at', '>=', now()->subMonths(11)->startOfMonth())
+            ->select(
+                DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month"),
+                DB::raw("SUM(CASE WHEN status = '".OrderStatus::Livree->value."' THEN 1 ELSE 0 END) as validated"),
+                DB::raw("SUM(CASE WHEN status IN ('".implode("','", $pendingStatuses)."') THEN 1 ELSE 0 END) as pending"),
+                DB::raw("SUM(CASE WHEN status = '".OrderStatus::Annulee->value."' THEN 1 ELSE 0 END) as cancelled"),
+                DB::raw("SUM(CASE WHEN status = '".OrderStatus::Retournee->value."' THEN 1 ELSE 0 END) as returns"),
+            );
+
+        $this->scopeOrdersForUser($query, $user);
+
+        $rows = $query->groupBy('month')->orderBy('month')->get();
+
+        $monthLabels = ['01' => 'JAN', '02' => 'FÉV', '03' => 'MAR', '04' => 'AVR', '05' => 'MAI', '06' => 'JUN',
+            '07' => 'JUL', '08' => 'AOÛ', '09' => 'SEP', '10' => 'OCT', '11' => 'NOV', '12' => 'DÉC'];
+
+        $labels = [];
+        $validated = [];
+        $pending = [];
+        $cancelled = [];
+        $returns = [];
+
+        foreach ($rows as $row) {
+            $monthNum = substr($row->month, 5, 2);
+            $labels[] = $monthLabels[$monthNum] ?? $row->month;
+            $validated[] = (int) $row->validated;
+            $pending[] = (int) $row->pending;
+            $cancelled[] = (int) $row->cancelled;
+            $returns[] = (int) $row->returns;
+        }
+
+        return compact('labels', 'validated', 'pending', 'cancelled', 'returns');
+    }
+
     public function monthlySalesChart(?User $user = null): array
     {
         $query = Order::query()

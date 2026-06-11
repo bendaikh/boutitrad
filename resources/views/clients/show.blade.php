@@ -4,7 +4,7 @@
             <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="font-semibold text-lg">{{ $client->name }}</h2>
-                    <a href="{{ route('clients.edit', $client) }}" class="text-sm text-indigo-600">Modifier</a>
+                    <a href="{{ route('clients.edit', $client) }}" class="text-sm text-brand-600">Modifier</a>
                 </div>
                 <dl class="space-y-2 text-sm">
                     <div><dt class="text-slate-500">Email</dt><dd>{{ $client->email ?? '-' }}</dd></div>
@@ -31,7 +31,7 @@
                     <tbody class="divide-y divide-slate-100">
                         @forelse($client->orders as $order)
                             <tr>
-                                <td class="px-5 py-3"><a href="{{ route('orders.show', $order) }}" class="text-indigo-600">{{ $order->reference }}</a></td>
+                                <td class="px-5 py-3"><a href="{{ route('orders.show', $order) }}" class="text-brand-600">{{ $order->reference }}</a></td>
                                 <td class="px-5 py-3"><x-admin.status-badge :status="$order->status" /></td>
                                 <td class="px-5 py-3 text-right">{{ number_format($order->total, 2, ',', ' ') }} DH</td>
                                 <td class="px-5 py-3">{{ $order->created_at->format('d/m/Y') }}</td>

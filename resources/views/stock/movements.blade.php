@@ -1,5 +1,5 @@
 <x-admin-layout title="Historique des mouvements">
-    <a href="{{ route('stock.index') }}" class="text-sm text-indigo-600 mb-4 inline-block">← Retour au stock</a>
+    <a href="{{ route('stock.index') }}" class="text-sm text-brand-600 mb-4 inline-block">← Retour au stock</a>
     <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
         <table class="w-full text-sm">
             <thead class="bg-slate-50"><tr><th class="px-5 py-3 text-left">Produit</th><th class="px-5 py-3 text-left">Type</th><th class="px-5 py-3 text-center">Qté</th><th class="px-5 py-3 text-left">Utilisateur</th><th class="px-5 py-3 text-left">Date</th></tr></thead>

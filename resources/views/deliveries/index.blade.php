@@ -8,7 +8,7 @@
             <tbody class="divide-y">
                 @forelse($orders as $order)
                     <tr class="hover:bg-slate-50">
-                        <td class="px-5 py-3"><a href="{{ route('orders.show', $order) }}" class="text-indigo-600 font-medium">{{ $order->reference }}</a></td>
+                        <td class="px-5 py-3"><a href="{{ route('orders.show', $order) }}" class="text-brand-600 font-medium">{{ $order->reference }}</a></td>
                         <td class="px-5 py-3">{{ $order->client->name }}</td>
                         <td class="px-5 py-3">{{ $order->livreur?->name ?? 'Non assigné' }}</td>
                         <td class="px-5 py-3"><x-admin.status-badge :status="$order->status" /></td>

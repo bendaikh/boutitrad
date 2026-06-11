@@ -2,7 +2,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <x-admin.stat-card label="Valorisation stock" :value="number_format($totalValue, 0, ',', ' ').' DH'" color="indigo" />
         <x-admin.stat-card label="Alertes rupture" :value="$lowStockCount" color="amber" />
-        <a href="{{ route('stock.movements') }}" class="flex items-center justify-center bg-white rounded-xl border p-5 text-indigo-600 font-medium hover:bg-indigo-50">Voir historique →</a>
+        <a href="{{ route('stock.movements') }}" class="flex items-center justify-center bg-white rounded-xl border p-5 text-brand-600 font-medium hover:bg-brand-50">Voir historique →</a>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -33,7 +33,7 @@
             <input type="number" name="quantity" min="0" required placeholder="Quantité" class="w-full rounded-lg border-slate-300 text-sm">
             <input type="text" name="reference" placeholder="Référence" class="w-full rounded-lg border-slate-300 text-sm">
             <textarea name="notes" rows="2" placeholder="Notes" class="w-full rounded-lg border-slate-300 text-sm"></textarea>
-            <button type="submit" class="w-full py-2 bg-indigo-600 text-white rounded-lg text-sm">Enregistrer</button>
+            <button type="submit" class="w-full py-2 bg-brand-600 text-white rounded-lg text-sm">Enregistrer</button>
         </form>
     </div>
 </x-admin-layout>
