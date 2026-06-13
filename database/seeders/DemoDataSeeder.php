@@ -70,23 +70,27 @@ class DemoDataSeeder extends Seeder
         $products = [
             Product::firstOrCreate(['sku' => 'SAM-S24-001'], [
                 'category_id' => $catElectronique->id, 'brand_id' => $brandSamsung->id,
-                'name' => 'Samsung Galaxy S24', 'purchase_price' => 6500, 'sale_price' => 7999,
+                'name' => 'Samsung Galaxy S24', 'barcode' => '8806095123456', 'supplier' => 'Samsung Maroc', 'city' => 'Casablanca',
+                'purchase_price' => 6500, 'sale_price' => 7999,
                 'quantity' => 25, 'min_quantity' => 5, 'unit' => 'unité',
             ]),
             Product::firstOrCreate(['sku' => 'NIK-AIR-001'], [
                 'category_id' => $catMode->id, 'brand_id' => $brandNike->id,
-                'name' => 'Nike Air Max', 'purchase_price' => 800, 'sale_price' => 1299,
+                'name' => 'Nike Air Max', 'supplier' => 'Nike Distribution', 'city' => 'Rabat',
+                'purchase_price' => 800, 'sale_price' => 1299,
                 'quantity' => 50, 'min_quantity' => 10, 'unit' => 'paire',
             ]),
             Product::firstOrCreate(['sku' => 'GEN-LMP-001'], [
                 'category_id' => $catMaison->id, 'brand_id' => $brandGeneric->id,
-                'name' => 'Lampe LED Design', 'purchase_price' => 120, 'sale_price' => 249,
+                'name' => 'Lampe LED Design', 'supplier' => 'Lumitech', 'city' => 'Marrakech',
+                'purchase_price' => 120, 'sale_price' => 249,
                 'quantity' => 3, 'min_quantity' => 5, 'unit' => 'unité',
             ]),
             Product::firstOrCreate(['sku' => 'SAM-BUDS-001'], [
                 'category_id' => $catElectronique->id, 'brand_id' => $brandSamsung->id,
-                'name' => 'Samsung Galaxy Buds', 'purchase_price' => 900, 'sale_price' => 1399,
-                'quantity' => 40, 'min_quantity' => 8, 'unit' => 'unité',
+                'name' => 'Samsung Galaxy Buds', 'supplier' => 'Samsung Maroc', 'city' => 'Casablanca',
+                'purchase_price' => 900, 'sale_price' => 1399,
+                'quantity' => 0, 'min_quantity' => 8, 'unit' => 'unité',
             ]),
         ];
 
@@ -94,74 +98,22 @@ class DemoDataSeeder extends Seeder
             Client::firstOrCreate(['email' => 'client1@email.com'], [
                 'name' => 'Karim Mansouri', 'phone' => '+212 644 444 444',
                 'address' => '123 Bd Mohammed V', 'city' => 'Casablanca', 'balance' => 0,
+                'prospection' => 'facebook', 'payment_mode' => 'especes', 'commercial_id' => $commercial->id,
             ]),
             Client::firstOrCreate(['email' => 'client2@email.com'], [
                 'name' => 'Sara Idrissi', 'phone' => '+212 655 555 555',
                 'address' => '45 Rue Allal Ben Abdellah', 'city' => 'Rabat', 'balance' => -500,
+                'prospection' => 'instagram', 'payment_mode' => 'credit', 'commercial_id' => $commercial->id,
             ]),
             Client::firstOrCreate(['email' => 'client3@email.com'], [
                 'name' => 'Mohamed Tazi', 'phone' => '+212 666 666 666',
                 'address' => '78 Avenue Hassan II', 'city' => 'Marrakech', 'balance' => 200,
+                'prospection' => 'terrain', 'payment_mode' => 'virement', 'commercial_id' => $commercial->id,
             ]),
         ];
 
-        $statuses = [
-            OrderStatus::Nouvelle,
-            OrderStatus::Confirmee,
-            OrderStatus::EnPreparation,
-            OrderStatus::Expediee,
-            OrderStatus::Livree,
-            OrderStatus::Livree,
-            OrderStatus::Annulee,
-            OrderStatus::Retournee,
-        ];
-
-        foreach ($statuses as $i => $status) {
-            $client = $clients[$i % count($clients)];
-            $product = $products[$i % count($products)];
-            $qty = rand(1, 3);
-            $total = $product->sale_price * $qty;
-
-            $order = Order::firstOrCreate(['reference' => 'CMD-'.now()->format('Ymd').'-'.str_pad($i + 1, 4, '0', STR_PAD_LEFT)], [
-                'client_id' => $client->id,
-                'commercial_id' => $commercial->id,
-                'livreur_id' => in_array($status, [OrderStatus::Expediee, OrderStatus::Livree]) ? $livreur->id : null,
-                'status' => $status,
-                'subtotal' => $total,
-                'total' => $total,
-                'validated_at' => in_array($status, [OrderStatus::Confirmee, OrderStatus::EnPreparation, OrderStatus::Expediee, OrderStatus::Livree]) ? now()->subDays(rand(1, 10)) : null,
-                'delivered_at' => $status === OrderStatus::Livree ? now()->subDays(rand(1, 5)) : null,
-                'cancelled_at' => $status === OrderStatus::Annulee ? now()->subDays(2) : null,
-                'created_by' => $adminId,
-                'created_at' => now()->subDays(rand(1, 30)),
-            ]);
-
-            if ($order->wasRecentlyCreated) {
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'product_id' => $product->id,
-                    'product_name' => $product->name,
-                    'quantity' => $qty,
-                    'unit_price' => $product->sale_price,
-                    'total' => $total,
-                ]);
-
-                OrderStatusHistory::create([
-                    'order_id' => $order->id,
-                    'status' => $status->value,
-                    'user_id' => $adminId,
-                ]);
-
-                if ($status === OrderStatus::Livree) {
-                    Commission::create([
-                        'user_id' => $commercial->id,
-                        'order_id' => $order->id,
-                        'amount' => $total * 0.05,
-                        'status' => 'paid',
-                    ]);
-                }
-            }
-        }
+        Order::where('reference', 'like', 'CMD-%')->delete();
+        $this->seedYearlyOrders($adminId, $commercial, $livreur, $clients, $products);
 
         CommercialObjective::firstOrCreate([
             'user_id' => $commercial->id,
@@ -187,5 +139,128 @@ class DemoDataSeeder extends Seeder
             'type' => 'out', 'amount' => 15000, 'description' => 'Paiement fournisseurs',
             'transaction_date' => now()->subDays(2), 'user_id' => $adminId,
         ]);
+    }
+
+    private function seedYearlyOrders(
+        int $adminId,
+        User $commercial,
+        User $livreur,
+        array $clients,
+        array $products,
+    ): void {
+        $year = now()->year;
+        $pendingStatuses = OrderStatus::activeStatuses();
+
+        $monthlyCounts = [
+            1 => ['validated' => 5, 'pending' => 4, 'cancelled' => 2, 'returns' => 1],
+            2 => ['validated' => 6, 'pending' => 3, 'cancelled' => 1, 'returns' => 2],
+            3 => ['validated' => 4, 'pending' => 5, 'cancelled' => 2, 'returns' => 1],
+            4 => ['validated' => 7, 'pending' => 3, 'cancelled' => 1, 'returns' => 2],
+            5 => ['validated' => 5, 'pending' => 4, 'cancelled' => 2, 'returns' => 1],
+            6 => ['validated' => 6, 'pending' => 5, 'cancelled' => 1, 'returns' => 2],
+            7 => ['validated' => 4, 'pending' => 3, 'cancelled' => 1, 'returns' => 1],
+            8 => ['validated' => 5, 'pending' => 4, 'cancelled' => 2, 'returns' => 1],
+            9 => ['validated' => 6, 'pending' => 3, 'cancelled' => 1, 'returns' => 2],
+            10 => ['validated' => 5, 'pending' => 5, 'cancelled' => 2, 'returns' => 1],
+            11 => ['validated' => 7, 'pending' => 3, 'cancelled' => 1, 'returns' => 2],
+            12 => ['validated' => 4, 'pending' => 4, 'cancelled' => 2, 'returns' => 1],
+        ];
+
+        $sequence = 1;
+
+        foreach ($monthlyCounts as $month => $counts) {
+            $createdAt = now()->setDate($year, $month, rand(5, 25))->startOfDay()->addHours(rand(9, 18));
+
+            foreach ($this->orderTypesForMonth($counts, $pendingStatuses) as $status) {
+                $client = $clients[($sequence - 1) % count($clients)];
+                $product = $products[($sequence - 1) % count($products)];
+                $qty = rand(1, 3);
+                $total = $product->sale_price * $qty;
+                $reference = sprintf('CMD-DEMO-%04d-%02d-%04d', $year, $month, $sequence);
+
+                $paymentModes = ['especes', 'cheque', 'virement', 'credit'];
+                $paymentMode = $paymentModes[$sequence % count($paymentModes)];
+                $amountPaid = match ($sequence % 3) {
+                    0 => $total,
+                    1 => round($total * 0.5, 2),
+                    default => 0,
+                };
+
+                $order = Order::create([
+                    'reference' => $reference,
+                    'client_id' => $client->id,
+                    'commercial_id' => $commercial->id,
+                    'livreur_id' => in_array($status, [OrderStatus::Expediee, OrderStatus::Livree], true) ? $livreur->id : null,
+                    'status' => $status,
+                    'subtotal' => $total,
+                    'total' => $total,
+                    'amount_paid' => $amountPaid,
+                    'payment_mode' => $paymentMode,
+                    'validated_at' => in_array($status, [OrderStatus::Confirmee, OrderStatus::EnPreparation, OrderStatus::Expediee, OrderStatus::Livree], true)
+                        ? $createdAt->copy()->subDays(rand(1, 3))
+                        : null,
+                    'delivered_at' => $status === OrderStatus::Livree ? $createdAt->copy()->addDays(rand(1, 4)) : null,
+                    'cancelled_at' => $status === OrderStatus::Annulee ? $createdAt->copy()->addDays(rand(1, 2)) : null,
+                    'created_by' => $adminId,
+                ]);
+
+                $order->created_at = $createdAt;
+                $order->updated_at = $createdAt;
+                $order->save();
+
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'quantity' => $qty,
+                    'unit_price' => $product->sale_price,
+                    'total' => $total,
+                ]);
+
+                OrderStatusHistory::create([
+                    'order_id' => $order->id,
+                    'status' => $status->value,
+                    'user_id' => $adminId,
+                    'created_at' => $createdAt,
+                    'updated_at' => $createdAt,
+                ]);
+
+                if ($status === OrderStatus::Livree) {
+                    Commission::create([
+                        'user_id' => $commercial->id,
+                        'order_id' => $order->id,
+                        'amount' => $total * 0.05,
+                        'status' => 'paid',
+                        'created_at' => $createdAt,
+                        'updated_at' => $createdAt,
+                    ]);
+                }
+
+                $sequence++;
+            }
+        }
+    }
+
+    private function orderTypesForMonth(array $counts, array $pendingStatuses): array
+    {
+        $orders = [];
+
+        for ($i = 0; $i < $counts['validated']; $i++) {
+            $orders[] = OrderStatus::Livree;
+        }
+
+        for ($i = 0; $i < $counts['pending']; $i++) {
+            $orders[] = $pendingStatuses[$i % count($pendingStatuses)];
+        }
+
+        for ($i = 0; $i < $counts['cancelled']; $i++) {
+            $orders[] = OrderStatus::Annulee;
+        }
+
+        for ($i = 0; $i < $counts['returns']; $i++) {
+            $orders[] = OrderStatus::Retournee;
+        }
+
+        return $orders;
     }
 }

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\Category;
 use App\Models\Setting;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -47,5 +49,13 @@ class SettingController extends Controller
         }
 
         return back()->with('success', 'Paramètres enregistrés.');
+    }
+
+    public function permissions(): View
+    {
+        return view('settings.permissions', [
+            'roles' => UserRole::cases(),
+            'users' => User::orderBy('name')->get(),
+        ]);
     }
 }

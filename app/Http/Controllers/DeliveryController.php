@@ -11,7 +11,12 @@ use Illuminate\View\View;
 
 class DeliveryController extends Controller
 {
-    public function index(Request $request): View
+    public function partners(): View
+    {
+        return view('deliveries.partners');
+    }
+
+    public function transport(Request $request): View
     {
         $user = auth()->user();
 
@@ -29,10 +34,26 @@ class DeliveryController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        return view('deliveries.index', [
+        return view('deliveries.transport', [
             'orders' => $orders,
             'livreurs' => User::where('role', UserRole::Livreur)->where('is_active', true)->get(),
             'statuses' => OrderStatus::cases(),
+        ]);
+    }
+
+    public function livreurs(): View
+    {
+        $livreurs = User::where('role', UserRole::Livreur)
+            ->withCount(['deliveryOrders as active_deliveries_count' => fn ($q) => $q->whereIn('status', [
+                OrderStatus::Confirmee,
+                OrderStatus::EnPreparation,
+                OrderStatus::Expediee,
+            ])])
+            ->latest()
+            ->paginate(15);
+
+        return view('deliveries.livreurs', [
+            'livreurs' => $livreurs,
         ]);
     }
 }

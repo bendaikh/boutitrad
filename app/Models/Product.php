@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Product extends Model
 {
     protected $fillable = [
-        'category_id', 'brand_id', 'name', 'sku', 'description',
+        'category_id', 'brand_id', 'name', 'sku', 'barcode', 'supplier', 'city', 'description',
         'purchase_price', 'sale_price', 'quantity', 'min_quantity', 'unit', 'is_active',
     ];
 
@@ -44,7 +44,29 @@ class Product extends Model
 
     public function isLowStock(): bool
     {
-        return $this->quantity <= $this->min_quantity;
+        return $this->quantity > 0 && $this->quantity <= $this->min_quantity;
+    }
+
+    public function stockStatus(): string
+    {
+        if ($this->quantity <= 0) {
+            return 'rupture';
+        }
+
+        if ($this->quantity <= $this->min_quantity) {
+            return 'faible';
+        }
+
+        return 'dispo';
+    }
+
+    public function stockStatusLabel(): string
+    {
+        return match ($this->stockStatus()) {
+            'dispo' => 'Dispo',
+            'faible' => 'Faible',
+            'rupture' => 'Rupture',
+        };
     }
 
     public function stockValue(): float

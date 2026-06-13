@@ -3,8 +3,8 @@
 @php
 $active = request()->routeIs(str_replace('.index', '.*', $route)) || request()->routeIs($route);
 $classes = $active
-    ? 'bg-brand-600 text-white shadow-sm'
-    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700';
+    ? 'bg-brand-600 text-white shadow-sm dark:bg-brand-500'
+    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200';
 @endphp
 
 <a href="{{ route($route) }}"

@@ -1,4 +1,4 @@
-<x-admin-layout title="Tableau de bord">
+<x-admin-layout title="BELDI-MALAKI">
 
 @php
 $user = auth()->user();
@@ -25,7 +25,7 @@ $usersIcon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 
     @if(count($alerts))
         <div class="flex flex-wrap gap-2">
             @foreach(array_slice($alerts, 0, 3) as $alert)
-                <span class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg {{ $alert['type'] === 'warning' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-brand-50 text-brand-800 border border-brand-200' }}">
+                <span class="{{ $alert['type'] === 'warning' ? 'admin-alert-warning' : 'admin-alert-info' }}">
                     <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
                     {{ $alert['message'] }}
                 </span>
@@ -36,56 +36,56 @@ $usersIcon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 
     {{-- Main chart --}}
     <div class="admin-card p-5">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-base font-bold text-slate-800">Distribution des Commandes</h3>
-            <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+            <h3 class="admin-section-title">Distribution des Commandes <span class="admin-section-subtitle">({{ now()->year }})</span></h3>
+            <div class="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
             </div>
         </div>
-        <div class="h-72 sm:h-80"><canvas id="orderDistributionChart"></canvas></div>
+        <div class="h-80 sm:h-96"><canvas id="orderDistributionChart"></canvas></div>
     </div>
 
     {{-- Secondary content --}}
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div class="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="admin-card p-4">
-                <h3 class="text-sm font-semibold text-slate-800 mb-3">Commandes par statut</h3>
+                <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Commandes par statut</h3>
                 <div class="h-44"><canvas id="orderStatusChart"></canvas></div>
             </div>
             <div class="admin-card p-4">
-                <h3 class="text-sm font-semibold text-slate-800 mb-3">Ventes mensuelles</h3>
+                <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Ventes mensuelles <span class="text-xs font-normal text-slate-500 dark:text-slate-400">({{ now()->year }})</span></h3>
                 <div class="h-44"><canvas id="monthlySalesChart"></canvas></div>
             </div>
             @if($user->isSuperAdmin())
                 <div class="admin-card p-4">
-                    <h3 class="text-sm font-semibold text-slate-800 mb-3">Commerciaux</h3>
+                    <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Commerciaux</h3>
                     <div class="h-40"><canvas id="commercialChart"></canvas></div>
                 </div>
                 <div class="admin-card p-4">
-                    <h3 class="text-sm font-semibold text-slate-800 mb-3">Livreurs</h3>
+                    <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Livreurs</h3>
                     <div class="h-40"><canvas id="livreurChart"></canvas></div>
                 </div>
             @endif
         </div>
 
         <div class="admin-card flex flex-col max-h-[420px] xl:max-h-none">
-            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-                <h3 class="text-sm font-bold text-slate-800">Activité récente</h3>
+            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">Activité récente</h3>
                 <a href="{{ route('orders.index') }}" class="text-xs link-brand">Tout voir</a>
             </div>
-            <div class="divide-y divide-slate-100 overflow-y-auto flex-1">
+            <div class="admin-list-divider overflow-y-auto flex-1">
                 @forelse($recentOrders as $order)
-                    <a href="{{ route('orders.show', $order) }}" class="flex items-center justify-between gap-2 px-5 py-3 hover:bg-slate-50 transition-colors">
+                    <a href="{{ route('orders.show', $order) }}" class="admin-list-item">
                         <div class="min-w-0 flex-1">
                             <div class="text-sm font-medium link-brand truncate">{{ $order->reference }}</div>
-                            <div class="text-xs text-slate-500 truncate">{{ $order->client->name }}</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ $order->client->name }}</div>
                         </div>
                         <div class="text-right shrink-0">
-                            <div class="text-sm font-semibold text-slate-800">{{ number_format($order->total, 0, ',', ' ') }} DH</div>
+                            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ number_format($order->total, 0, ',', ' ') }} DH</div>
                             <div class="mt-0.5"><x-admin.status-badge :status="$order->status" /></div>
                         </div>
                     </a>
                 @empty
-                    <p class="px-5 py-8 text-sm text-slate-500 text-center">Aucune commande</p>
+                    <p class="px-5 py-8 text-sm text-slate-500 dark:text-slate-400 text-center">Aucune commande</p>
                 @endforelse
             </div>
         </div>
@@ -95,19 +95,27 @@ $usersIcon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const isDark = () => document.documentElement.classList.contains('dark');
     const chartColors = {
         validated: '#22c55e',
-        pending: '#f97316',
-        cancelled: '#eab308',
-        returns: '#ef4444',
+        pending: '#3b82f6',
+        cancelled: '#ef4444',
+        returns: '#f97316',
         brand: '#2563eb',
         brandLight: 'rgba(37, 99, 235, 0.08)',
     };
+    const gridColor = () => isDark() ? '#334155' : '#f1f5f9';
+    const tickColor = () => isDark() ? '#94a3b8' : '#64748b';
+    const legendColor = () => isDark() ? '#cbd5e1' : '#475569';
 
     const base = {
         responsive: true,
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
+    };
+    const scaleDefaults = {
+        ticks: { color: tickColor() },
+        grid: { color: gridColor() },
     };
 
     new Chart(document.getElementById('orderDistributionChart'), {
@@ -115,24 +123,45 @@ document.addEventListener('DOMContentLoaded', function() {
         data: {
             labels: @json($orderDistributionChart['labels']),
             datasets: [
-                { label: 'Validées', data: @json($orderDistributionChart['validated']), backgroundColor: chartColors.validated, borderRadius: 4, borderSkipped: false },
-                { label: 'En attente', data: @json($orderDistributionChart['pending']), backgroundColor: chartColors.pending, borderRadius: 4, borderSkipped: false },
-                { label: 'Annulées', data: @json($orderDistributionChart['cancelled']), backgroundColor: chartColors.cancelled, borderRadius: 4, borderSkipped: false },
-                { label: 'Retours', data: @json($orderDistributionChart['returns']), backgroundColor: chartColors.returns, borderRadius: 4, borderSkipped: false },
+                { label: 'Validées', data: @json($orderDistributionChart['validated']), backgroundColor: chartColors.validated, borderRadius: 3, borderSkipped: false, maxBarThickness: 14 },
+                { label: 'En attente', data: @json($orderDistributionChart['pending']), backgroundColor: chartColors.pending, borderRadius: 3, borderSkipped: false, maxBarThickness: 14 },
+                { label: 'Annulées', data: @json($orderDistributionChart['cancelled']), backgroundColor: chartColors.cancelled, borderRadius: 3, borderSkipped: false, maxBarThickness: 14 },
+                { label: 'Retours', data: @json($orderDistributionChart['returns']), backgroundColor: chartColors.returns, borderRadius: 3, borderSkipped: false, maxBarThickness: 14 },
             ],
         },
         options: {
             ...base,
+            datasets: {
+                bar: {
+                    categoryPercentage: 0.7,
+                    barPercentage: 0.85,
+                },
+            },
             plugins: {
                 legend: {
                     display: true,
                     position: 'bottom',
-                    labels: { usePointStyle: true, pointStyle: 'circle', padding: 20, font: { size: 12 } },
+                    labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 12 }, color: legendColor() },
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
                 },
             },
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
             scales: {
-                x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, maxTicksLimit: 6 } },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 10 }, autoSkip: false, maxRotation: 0, minRotation: 0, color: tickColor() },
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: gridColor() },
+                    ticks: { font: { size: 11 }, stepSize: 1, precision: 0, color: tickColor() },
+                },
             },
         },
     });
@@ -151,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ...base,
             cutout: '65%',
             plugins: {
-                legend: { display: true, position: 'right', labels: { boxWidth: 10, font: { size: 10 }, padding: 8 } },
+                legend: { display: true, position: 'right', labels: { boxWidth: 10, font: { size: 10 }, padding: 8, color: legendColor() } },
             },
         },
     });
@@ -173,8 +202,8 @@ document.addEventListener('DOMContentLoaded', function() {
         options: {
             ...base,
             scales: {
-                x: { ticks: { font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 }, grid: { display: false } },
-                y: { beginAtZero: true, ticks: { font: { size: 10 }, maxTicksLimit: 5 }, grid: { color: '#f1f5f9' } },
+                x: { ticks: { font: { size: 10 }, autoSkip: false, maxRotation: 45, minRotation: 0, color: tickColor() }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { font: { size: 10 }, maxTicksLimit: 5, color: tickColor() }, grid: { color: gridColor() } },
             },
         },
     });
@@ -189,8 +218,8 @@ document.addEventListener('DOMContentLoaded', function() {
         options: {
             ...base,
             scales: {
-                x: { ticks: { font: { size: 10 } }, grid: { display: false } },
-                y: { beginAtZero: true, ticks: { font: { size: 10 }, maxTicksLimit: 4 }, grid: { color: '#f1f5f9' } },
+                x: { ticks: { font: { size: 10 }, color: tickColor() }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { font: { size: 10 }, maxTicksLimit: 4, color: tickColor() }, grid: { color: gridColor() } },
             },
         },
     });
@@ -204,8 +233,8 @@ document.addEventListener('DOMContentLoaded', function() {
         options: {
             ...base,
             scales: {
-                x: { ticks: { font: { size: 10 } }, grid: { display: false } },
-                y: { beginAtZero: true, ticks: { font: { size: 10 }, maxTicksLimit: 4 }, grid: { color: '#f1f5f9' } },
+                x: { ticks: { font: { size: 10 }, color: tickColor() }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { font: { size: 10 }, maxTicksLimit: 4, color: tickColor() }, grid: { color: gridColor() } },
             },
         },
     });

@@ -3,49 +3,64 @@
 namespace App\Http\Controllers;
 
 use App\Enums\OrderStatus;
+use App\Enums\PaymentMode;
 use App\Enums\UserRole;
 use App\Models\Client;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
 use App\Models\Product;
+use App\Models\Setting;
 use App\Models\User;
+use App\Services\OrderListService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class OrderController extends Controller
 {
+    public function __construct(private OrderListService $orderList) {}
+
     public function index(Request $request): View
     {
         $user = auth()->user();
 
-        $orders = Order::with(['client', 'commercial', 'livreur'])
-            ->when($user->isCommercial(), fn ($q) => $q->where('commercial_id', $user->id))
-            ->when($user->isLivreur(), fn ($q) => $q->where('livreur_id', $user->id))
-            ->when($request->search, fn ($q, $s) => $q->where(function ($q) use ($s) {
-                $q->where('reference', 'like', "%{$s}%")
-                    ->orWhereHas('client', fn ($q) => $q->where('name', 'like', "%{$s}%"));
-            }))
-            ->when($request->status, fn ($q, $s) => $q->where('status', $s))
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
-
         return view('orders.index', [
-            'orders' => $orders,
-            'statuses' => OrderStatus::cases(),
+            'items' => $this->orderList->filteredItems($request, $user),
+            'statuses' => $this->orderList->statuses(),
+            'categories' => $this->orderList->categories(),
         ]);
     }
 
     public function create(): View
     {
+        $clients = Client::where('is_active', true)->orderBy('name')->get();
+
         return view('orders.create', [
-            'clients' => Client::where('is_active', true)->orderBy('name')->get(),
+            'clients' => $clients,
+            'clientsData' => $clients->map(fn (Client $client) => [
+                'id' => $client->id,
+                'formattedId' => $client->formattedId(),
+                'name' => $client->name,
+                'city' => $client->city ?? '',
+                'commercial_id' => $client->commercial_id,
+                'payment_mode' => $client->payment_mode?->value,
+            ])->values(),
             'products' => Product::where('is_active', true)->where('quantity', '>', 0)->orderBy('name')->get(),
+            'productsData' => Product::where('is_active', true)->where('quantity', '>', 0)->orderBy('name')->get()->map(fn (Product $product) => [
+                'id' => $product->id,
+                'sku' => $product->sku,
+                'name' => $product->name,
+                'sale_price' => (float) $product->sale_price,
+                'stock' => $product->quantity,
+            ])->values(),
             'commercials' => User::where('role', UserRole::Commercial)->where('is_active', true)->get(),
             'livreurs' => User::where('role', UserRole::Livreur)->where('is_active', true)->get(),
+            'paymentModes' => PaymentMode::cases(),
+            'previewReference' => Order::generateReference(),
+            'defaultDeliveryCost' => (float) Setting::get('delivery_fee', 0),
         ]);
     }
 
@@ -53,14 +68,18 @@ class OrderController extends Controller
     {
         $validated = $request->validate([
             'client_id' => 'required|exists:clients,id',
+            'order_date' => 'nullable|date',
             'commercial_id' => 'nullable|exists:users,id',
             'livreur_id' => 'nullable|exists:users,id',
+            'payment_mode' => ['nullable', Rule::enum(PaymentMode::class)],
             'notes' => 'nullable|string',
             'internal_notes' => 'nullable|string',
             'discount' => 'nullable|numeric|min:0',
+            'delivery_cost' => 'nullable|numeric|min:0',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
+            'items.*.unit_price' => 'required|numeric|min:0',
         ]);
 
         $order = DB::transaction(function () use ($validated) {
@@ -69,18 +88,20 @@ class OrderController extends Controller
 
             foreach ($validated['items'] as $item) {
                 $product = Product::findOrFail($item['product_id']);
-                $lineTotal = $product->sale_price * $item['quantity'];
+                $unitPrice = (float) $item['unit_price'];
+                $lineTotal = $unitPrice * $item['quantity'];
                 $subtotal += $lineTotal;
                 $items[] = [
                     'product' => $product,
                     'quantity' => $item['quantity'],
-                    'unit_price' => $product->sale_price,
+                    'unit_price' => $unitPrice,
                     'total' => $lineTotal,
                 ];
             }
 
             $discount = $validated['discount'] ?? 0;
-            $total = max(0, $subtotal - $discount);
+            $deliveryCost = $validated['delivery_cost'] ?? 0;
+            $total = max(0, $subtotal + $deliveryCost - $discount);
 
             $order = Order::create([
                 'reference' => Order::generateReference(),
@@ -90,7 +111,9 @@ class OrderController extends Controller
                 'status' => OrderStatus::Nouvelle,
                 'subtotal' => $subtotal,
                 'discount' => $discount,
+                'delivery_cost' => $deliveryCost,
                 'total' => $total,
+                'payment_mode' => $validated['payment_mode'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'internal_notes' => $validated['internal_notes'] ?? null,
                 'created_by' => auth()->id(),
@@ -113,6 +136,11 @@ class OrderController extends Controller
                 'notes' => 'Commande créée',
                 'user_id' => auth()->id(),
             ]);
+
+            if (! empty($validated['order_date'])) {
+                $order->created_at = $validated['order_date'];
+                $order->save();
+            }
 
             return $order;
         });

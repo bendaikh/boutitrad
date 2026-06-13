@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Brand extends Model
 {
-    protected $fillable = ['name', 'description', 'is_active'];
+    protected $fillable = ['name', 'description', 'image', 'is_active'];
 
     protected function casts(): array
     {
@@ -17,5 +17,10 @@ class Brand extends Model
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function imageUrl(): ?string
+    {
+        return $this->image ? '/storage/'.$this->image : null;
     }
 }

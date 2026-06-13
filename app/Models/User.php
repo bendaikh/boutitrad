@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -18,6 +19,7 @@ class User extends Authenticatable
         'password',
         'role',
         'phone',
+        'profile_photo',
         'is_active',
     ];
 
@@ -79,5 +81,15 @@ class User extends Authenticatable
     public function commissions(): HasMany
     {
         return $this->hasMany(Commission::class);
+    }
+
+    public function profilePhotoUrl(): ?string
+    {
+        return $this->profile_photo ? '/storage/'.$this->profile_photo : null;
+    }
+
+    public function initials(): string
+    {
+        return strtoupper(substr($this->name, 0, 1));
     }
 }

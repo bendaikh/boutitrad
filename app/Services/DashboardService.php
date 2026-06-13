@@ -59,9 +59,10 @@ class DashboardService
     public function orderDistributionChart(?User $user = null): array
     {
         $pendingStatuses = array_map(fn (OrderStatus $s) => $s->value, OrderStatus::activeStatuses());
+        $year = now()->year;
 
         $query = Order::query()
-            ->where('created_at', '>=', now()->subMonths(11)->startOfMonth())
+            ->whereYear('created_at', $year)
             ->select(
                 DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month"),
                 DB::raw("SUM(CASE WHEN status = '".OrderStatus::Livree->value."' THEN 1 ELSE 0 END) as validated"),
@@ -72,10 +73,7 @@ class DashboardService
 
         $this->scopeOrdersForUser($query, $user);
 
-        $rows = $query->groupBy('month')->orderBy('month')->get();
-
-        $monthLabels = ['01' => 'JAN', '02' => 'FÉV', '03' => 'MAR', '04' => 'AVR', '05' => 'MAI', '06' => 'JUN',
-            '07' => 'JUL', '08' => 'AOÛ', '09' => 'SEP', '10' => 'OCT', '11' => 'NOV', '12' => 'DÉC'];
+        $rows = $query->groupBy('month')->orderBy('month')->get()->keyBy('month');
 
         $labels = [];
         $validated = [];
@@ -83,13 +81,14 @@ class DashboardService
         $cancelled = [];
         $returns = [];
 
-        foreach ($rows as $row) {
-            $monthNum = substr($row->month, 5, 2);
-            $labels[] = $monthLabels[$monthNum] ?? $row->month;
-            $validated[] = (int) $row->validated;
-            $pending[] = (int) $row->pending;
-            $cancelled[] = (int) $row->cancelled;
-            $returns[] = (int) $row->returns;
+        foreach ($this->yearMonths($year) as $monthKey => $monthLabel) {
+            $row = $rows->get($monthKey);
+
+            $labels[] = $monthLabel;
+            $validated[] = $row ? (int) $row->validated : 0;
+            $pending[] = $row ? (int) $row->pending : 0;
+            $cancelled[] = $row ? (int) $row->cancelled : 0;
+            $returns[] = $row ? (int) $row->returns : 0;
         }
 
         return compact('labels', 'validated', 'pending', 'cancelled', 'returns');
@@ -97,9 +96,11 @@ class DashboardService
 
     public function monthlySalesChart(?User $user = null): array
     {
+        $year = now()->year;
+
         $query = Order::query()
             ->where('status', OrderStatus::Livree)
-            ->where('created_at', '>=', now()->subMonths(11)->startOfMonth())
+            ->whereYear('created_at', $year)
             ->select(
                 DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month"),
                 DB::raw('SUM(total) as total')
@@ -107,10 +108,15 @@ class DashboardService
 
         $this->scopeOrdersForUser($query, $user);
 
-        return $query->groupBy('month')
-            ->orderBy('month')
-            ->pluck('total', 'month')
-            ->toArray();
+        $rows = $query->groupBy('month')->orderBy('month')->get()->keyBy('month');
+
+        $result = [];
+
+        foreach ($this->yearMonths($year) as $monthKey => $monthLabel) {
+            $result[$monthLabel] = $rows->has($monthKey) ? (float) $rows[$monthKey]->total : 0;
+        }
+
+        return $result;
     }
 
     public function commercialPerformance(?User $user = null): array
@@ -209,6 +215,24 @@ class DashboardService
         }
 
         return $alerts;
+    }
+
+    private function yearMonths(int $year): array
+    {
+        $monthLabels = [
+            '01' => 'JAN', '02' => 'FÉV', '03' => 'MAR', '04' => 'AVR',
+            '05' => 'MAI', '06' => 'JUN', '07' => 'JUL', '08' => 'AOÛ',
+            '09' => 'SEP', '10' => 'OCT', '11' => 'NOV', '12' => 'DÉC',
+        ];
+
+        $months = [];
+
+        for ($month = 1; $month <= 12; $month++) {
+            $monthKey = sprintf('%04d-%02d', $year, $month);
+            $months[$monthKey] = $monthLabels[sprintf('%02d', $month)];
+        }
+
+        return $months;
     }
 
     private function scopeOrdersForUser($query, ?User $user): void

@@ -3,6 +3,8 @@ import forms from '@tailwindcss/forms';
 
 /** @type {import('tailwindcss').Config} */
 export default {
+    darkMode: 'class',
+
     content: [
         './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
         './storage/framework/views/*.php',
@@ -13,6 +15,7 @@ export default {
         extend: {
             fontFamily: {
                 sans: ['Inter', ...defaultTheme.fontFamily.sans],
+                tradition: ['Scheherazade New', 'Amiri', 'Cormorant Garamond', ...defaultTheme.fontFamily.serif],
             },
             colors: {
                 brand: {
@@ -31,11 +34,17 @@ export default {
                     DEFAULT: '#ffffff',
                     muted: '#f4f6f9',
                 },
+                royal: {
+                    DEFAULT: '#00332B',
+                    600: '#004D40',
+                    700: '#00332B',
+                    800: '#002820',
+                },
                 chart: {
                     validated: '#22c55e',
-                    pending: '#f97316',
-                    cancelled: '#eab308',
-                    returns: '#ef4444',
+                    pending: '#3b82f6',
+                    cancelled: '#ef4444',
+                    returns: '#f97316',
                 },
             },
             boxShadow: {

@@ -4,15 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Connexion — BoutiTrad</title>
+    <title>Connexion — BELDI-MALAKI</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|amiri:400,700|cormorant-garamond:400,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="font-sans antialiased">
     <div class="min-h-screen flex">
         {{-- Brand panel --}}
-        <div class="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden bg-gradient-to-br from-brand-800 via-brand-700 to-brand-900">
+        <div class="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden bg-[#00332B]">
             <div class="absolute inset-0 opacity-30">
                 <div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-brand-500 blur-3xl"></div>
                 <div class="absolute bottom-0 right-0 w-80 h-80 rounded-full bg-violet-600 blur-3xl"></div>
@@ -21,12 +21,8 @@
 
             <div class="relative z-10 flex flex-col justify-between p-12 xl:p-16 w-full text-white">
                 <div>
-                    <div class="flex items-center gap-3 mb-16">
-                        <div class="w-11 h-11 rounded-xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center font-bold text-lg">BT</div>
-                        <div>
-                            <div class="text-xl font-bold tracking-tight">Bouti-Trad</div>
-                            <div class="text-sm text-brand-200">Service Commercial</div>
-                        </div>
+                    <div class="mb-16">
+                        <x-admin.logo class="h-28 w-auto max-w-xs rounded-xl" />
                     </div>
 
                     <h1 class="text-4xl xl:text-5xl font-bold leading-tight mb-6">
@@ -44,8 +40,8 @@
                             <svg class="w-5 h-5 text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                         </div>
                         <div>
-                            <div class="font-semibold text-sm">Tableau de bord en temps réel</div>
-                            <div class="text-xs text-slate-400">KPIs, graphiques et alertes instantanées</div>
+                            <div class="font-tradition font-bold text-base text-white tracking-wide">BELDI-MALAKI</div>
+                            <div class="font-tradition text-xs text-brand-200 italic">Vente des habits traditionnels — KPIs & suivi en temps réel</div>
                         </div>
                     </div>
                     <div class="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
@@ -59,7 +55,7 @@
                     </div>
                 </div>
 
-                <p class="text-xs text-slate-500 mt-8">&copy; {{ date('Y') }} BoutiTrad. Tous droits réservés.</p>
+                <p class="text-xs text-slate-500 mt-8">&copy; {{ date('Y') }} BELDI-MALAKI. Tous droits réservés.</p>
             </div>
         </div>
 
@@ -67,12 +63,8 @@
         <div class="flex-1 flex items-center justify-center p-6 sm:p-10 bg-surface-muted">
             <div class="w-full max-w-md">
                 {{-- Mobile logo --}}
-                <div class="lg:hidden flex items-center gap-3 mb-8 justify-center">
-                    <div class="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center font-bold text-white">BT</div>
-                    <div>
-                        <div class="font-bold text-brand-800">Bouti-Trad</div>
-                        <div class="text-xs text-slate-500">Service Commercial</div>
-                    </div>
+                <div class="lg:hidden flex justify-center mb-8">
+                    <x-admin.logo class="h-20 w-auto rounded-xl" />
                 </div>
 
                 <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8 sm:p-10">
