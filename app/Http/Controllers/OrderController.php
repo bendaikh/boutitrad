@@ -12,6 +12,7 @@ use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\CommissionService;
 use App\Services\OrderListService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,10 @@ use Illuminate\View\View;
 
 class OrderController extends Controller
 {
-    public function __construct(private OrderListService $orderList) {}
+    public function __construct(
+        private OrderListService $orderList,
+        private CommissionService $commissionService,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -173,6 +177,7 @@ class OrderController extends Controller
         ]);
 
         $status = OrderStatus::from($validated['status']);
+        $previousStatus = $order->status;
 
         $updates = ['status' => $status];
 
@@ -193,6 +198,13 @@ class OrderController extends Controller
         }
 
         $order->update($updates);
+        $order->refresh();
+
+        $this->commissionService->syncAfterStatusChange($order, $previousStatus, $status);
+
+        if ($status === OrderStatus::Livree && isset($validated['commercial_id'])) {
+            $this->commissionService->grantForDeliveredOrder($order);
+        }
 
         OrderStatusHistory::create([
             'order_id' => $order->id,

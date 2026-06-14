@@ -192,10 +192,26 @@
 
             <main class="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6">
                 @if(session('success'))
-                    <div class="mb-4 admin-flash-success">{{ session('success') }}</div>
+                    <div
+                        x-data="{ show: true }"
+                        x-show="show"
+                        x-transition:leave="transition ease-in duration-300"
+                        x-transition:leave-start="opacity-100 translate-y-0"
+                        x-transition:leave-end="opacity-0 -translate-y-1"
+                        x-init="setTimeout(() => show = false, 2000)"
+                        class="mb-4 admin-flash-success"
+                    >{{ session('success') }}</div>
                 @endif
                 @if(session('error'))
-                    <div class="mb-4 admin-flash-error">{{ session('error') }}</div>
+                    <div
+                        x-data="{ show: true }"
+                        x-show="show"
+                        x-transition:leave="transition ease-in duration-300"
+                        x-transition:leave-start="opacity-100 translate-y-0"
+                        x-transition:leave-end="opacity-0 -translate-y-1"
+                        x-init="setTimeout(() => show = false, 4000)"
+                        class="mb-4 admin-flash-error"
+                    >{{ session('error') }}</div>
                 @endif
 
                 {{ $slot }}

@@ -19,6 +19,9 @@ class User extends Authenticatable
         'password',
         'role',
         'phone',
+        'whatsapp',
+        'prospect_zone',
+        'commission_rate',
         'profile_photo',
         'is_active',
     ];
@@ -35,6 +38,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => UserRole::class,
             'is_active' => 'boolean',
+            'commission_rate' => 'decimal:2',
         ];
     }
 
@@ -91,5 +95,17 @@ class User extends Authenticatable
     public function initials(): string
     {
         return strtoupper(substr($this->name, 0, 1));
+    }
+
+    public function formattedCommercialId(): string
+    {
+        return 'COM-'.str_pad((string) $this->id, 5, '0', STR_PAD_LEFT);
+    }
+
+    public static function previewCommercialId(): string
+    {
+        $next = static::where('role', UserRole::Commercial)->count() + 1;
+
+        return 'COM-'.str_pad((string) $next, 5, '0', STR_PAD_LEFT);
     }
 }

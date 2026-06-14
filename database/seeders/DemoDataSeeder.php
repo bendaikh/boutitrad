@@ -16,6 +16,7 @@ use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\Setting;
+use App\Models\Treasury;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -31,15 +32,6 @@ class DemoDataSeeder extends Seeder
         Setting::set('company_phone', '+212 600 000 000');
         Setting::set('company_address', 'Casablanca, Maroc');
         Setting::set('commission_rate', '5');
-
-        $commercial = User::updateOrCreate(['email' => 'commercial@boutitrad.com'], [
-            'name' => 'Ahmed Benali',
-            'password' => Hash::make('password'),
-            'role' => UserRole::Commercial,
-            'phone' => '+212 611 111 111',
-            'is_active' => true,
-            'email_verified_at' => now(),
-        ]);
 
         $livreur = User::updateOrCreate(['email' => 'livreur@boutitrad.com'], [
             'name' => 'Youssef Alami',
@@ -98,31 +90,22 @@ class DemoDataSeeder extends Seeder
             Client::firstOrCreate(['email' => 'client1@email.com'], [
                 'name' => 'Karim Mansouri', 'phone' => '+212 644 444 444',
                 'address' => '123 Bd Mohammed V', 'city' => 'Casablanca', 'balance' => 0,
-                'prospection' => 'facebook', 'payment_mode' => 'especes', 'commercial_id' => $commercial->id,
+                'prospection' => 'facebook', 'payment_mode' => 'especes', 'commercial_id' => null,
             ]),
             Client::firstOrCreate(['email' => 'client2@email.com'], [
                 'name' => 'Sara Idrissi', 'phone' => '+212 655 555 555',
                 'address' => '45 Rue Allal Ben Abdellah', 'city' => 'Rabat', 'balance' => -500,
-                'prospection' => 'instagram', 'payment_mode' => 'credit', 'commercial_id' => $commercial->id,
+                'prospection' => 'instagram', 'payment_mode' => 'credit', 'commercial_id' => null,
             ]),
             Client::firstOrCreate(['email' => 'client3@email.com'], [
                 'name' => 'Mohamed Tazi', 'phone' => '+212 666 666 666',
                 'address' => '78 Avenue Hassan II', 'city' => 'Marrakech', 'balance' => 200,
-                'prospection' => 'terrain', 'payment_mode' => 'virement', 'commercial_id' => $commercial->id,
+                'prospection' => 'terrain', 'payment_mode' => 'virement', 'commercial_id' => null,
             ]),
         ];
 
         Order::where('reference', 'like', 'CMD-%')->delete();
-        $this->seedYearlyOrders($adminId, $commercial, $livreur, $clients, $products);
-
-        CommercialObjective::firstOrCreate([
-            'user_id' => $commercial->id,
-            'period_start' => now()->startOfMonth(),
-        ], [
-            'target_amount' => 100000,
-            'achieved_amount' => Order::where('commercial_id', $commercial->id)->where('status', OrderStatus::Livree)->sum('total'),
-            'period_end' => now()->endOfMonth(),
-        ]);
+        $this->seedYearlyOrders($adminId, $livreur, $clients, $products);
 
         Expense::firstOrCreate(['title' => 'Loyer bureau'], [
             'amount' => 8000, 'category' => 'Fixe', 'expense_date' => now()->startOfMonth(), 'user_id' => $adminId,
@@ -130,6 +113,10 @@ class DemoDataSeeder extends Seeder
         Expense::firstOrCreate(['title' => 'Marketing digital'], [
             'amount' => 3500, 'category' => 'Marketing', 'expense_date' => now()->subDays(5), 'user_id' => $adminId,
         ]);
+
+        foreach (['Caisse principale', 'Banque Attijariwafa', 'Banque BMCE'] as $treasuryName) {
+            Treasury::firstOrCreate(['name' => $treasuryName], ['is_active' => true]);
+        }
 
         CashTransaction::firstOrCreate(['reference' => 'REC-001'], [
             'type' => 'in', 'amount' => 50000, 'description' => 'Encaissement ventes',
@@ -143,7 +130,6 @@ class DemoDataSeeder extends Seeder
 
     private function seedYearlyOrders(
         int $adminId,
-        User $commercial,
         User $livreur,
         array $clients,
         array $products,
@@ -189,7 +175,7 @@ class DemoDataSeeder extends Seeder
                 $order = Order::create([
                     'reference' => $reference,
                     'client_id' => $client->id,
-                    'commercial_id' => $commercial->id,
+                    'commercial_id' => null,
                     'livreur_id' => in_array($status, [OrderStatus::Expediee, OrderStatus::Livree], true) ? $livreur->id : null,
                     'status' => $status,
                     'subtotal' => $total,
@@ -224,17 +210,6 @@ class DemoDataSeeder extends Seeder
                     'created_at' => $createdAt,
                     'updated_at' => $createdAt,
                 ]);
-
-                if ($status === OrderStatus::Livree) {
-                    Commission::create([
-                        'user_id' => $commercial->id,
-                        'order_id' => $order->id,
-                        'amount' => $total * 0.05,
-                        'status' => 'paid',
-                        'created_at' => $createdAt,
-                        'updated_at' => $createdAt,
-                    ]);
-                }
 
                 $sequence++;
             }

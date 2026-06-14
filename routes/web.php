@@ -37,7 +37,12 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.status');
         Route::get('orders/{order}/invoice', [OrderController::class, 'invoice'])->name('orders.invoice');
         Route::get('sales/balance', [SalesController::class, 'balance'])->name('sales.balance');
+        Route::get('sales/balance/print', [SalesController::class, 'balancePrint'])->name('sales.balance.print');
+        Route::get('sales/balance/export/pdf', [SalesController::class, 'balanceExportPdf'])->name('sales.balance.export.pdf');
+        Route::get('sales/balance/export/excel', [SalesController::class, 'balanceExportExcel'])->name('sales.balance.export.excel');
         Route::get('sales/payments', [SalesController::class, 'payments'])->name('sales.payments');
+        Route::post('sales/payments', [SalesController::class, 'storePayment'])->name('sales.payments.store');
+        Route::patch('sales/payments/{payment}/status', [SalesController::class, 'updatePaymentStatus'])->name('sales.payments.update-status');
     });
 
     Route::middleware('role:superadmin,gestionnaire_stock')->group(function () {
@@ -67,10 +72,15 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware('role:superadmin,commercial')->group(function () {
         Route::get('commercials', [CommercialController::class, 'index'])->name('commercials.index');
+        Route::get('commercials/print', [CommercialController::class, 'print'])->name('commercials.print');
+        Route::get('commercials/export', [CommercialController::class, 'exportExcel'])->name('commercials.export');
         Route::get('commercials/{user}', [CommercialController::class, 'show'])->name('commercials.show');
     });
 
     Route::middleware('role:superadmin')->group(function () {
+        Route::post('commercials', [CommercialController::class, 'store'])->name('commercials.store');
+        Route::put('commercials/{user}', [CommercialController::class, 'update'])->name('commercials.update');
+        Route::delete('commercials/{user}', [CommercialController::class, 'destroy'])->name('commercials.destroy');
         Route::get('finance', [FinanceController::class, 'index'])->name('finance.index');
         Route::post('finance/expenses', [FinanceController::class, 'storeExpense'])->name('finance.expenses.store');
         Route::post('finance/transactions', [FinanceController::class, 'storeTransaction'])->name('finance.transactions.store');

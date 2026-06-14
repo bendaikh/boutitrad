@@ -7,11 +7,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Commission extends Model
 {
-    protected $fillable = ['user_id', 'order_id', 'amount', 'status'];
+    protected $fillable = ['user_id', 'order_id', 'rate', 'amount', 'status'];
 
     protected function casts(): array
     {
-        return ['amount' => 'decimal:2'];
+        return [
+            'rate' => 'decimal:2',
+            'amount' => 'decimal:2',
+        ];
     }
 
     public function user(): BelongsTo
