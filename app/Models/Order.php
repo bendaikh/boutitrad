@@ -11,9 +11,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Order extends Model
 {
     protected $fillable = [
-        'reference', 'client_id', 'commercial_id', 'livreur_id', 'status',
+        'reference', 'client_id', 'commercial_id', 'livreur_id', 'delivery_partner_id', 'partner_tracking_ref', 'status',
         'subtotal', 'discount', 'delivery_cost', 'tax', 'total', 'amount_paid', 'payment_mode', 'notes', 'internal_notes',
-        'validated_at', 'delivered_at', 'cancelled_at', 'created_by',
+        'validated_at', 'delivered_at', 'cancelled_at', 'submitted_to_admin_at', 'sent_to_partner_at', 'created_by',
     ];
 
     protected function casts(): array
@@ -30,6 +30,8 @@ class Order extends Model
             'validated_at' => 'datetime',
             'delivered_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'submitted_to_admin_at' => 'datetime',
+            'sent_to_partner_at' => 'datetime',
         ];
     }
 
@@ -46,6 +48,11 @@ class Order extends Model
     public function livreur(): BelongsTo
     {
         return $this->belongsTo(User::class, 'livreur_id');
+    }
+
+    public function deliveryPartner(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryPartner::class);
     }
 
     public function creator(): BelongsTo
@@ -122,5 +129,33 @@ class Order extends Model
     public function paymentStatusLabel(): string
     {
         return $this->paymentStatus() === 'paid' ? 'Payé' : 'Impayé';
+    }
+
+    public function isEditableByCommercial(): bool
+    {
+        return $this->status === OrderStatus::Nouvelle;
+    }
+
+    public function isAwaitingAdminValidation(): bool
+    {
+        return $this->status === OrderStatus::EnCours;
+    }
+
+    public function isWithPartner(): bool
+    {
+        return in_array($this->status, [
+            OrderStatus::Confirmee,
+            OrderStatus::EnPreparation,
+            OrderStatus::Expediee,
+        ], true);
+    }
+
+    public function isDeliverableByPartner(): bool
+    {
+        return in_array($this->status, [
+            OrderStatus::Expediee,
+            OrderStatus::EnPreparation,
+            OrderStatus::Confirmee,
+        ], true);
     }
 }

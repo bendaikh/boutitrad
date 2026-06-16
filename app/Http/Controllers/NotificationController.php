@@ -23,6 +23,12 @@ class NotificationController extends Controller
         $notification = auth()->user()->notifications()->findOrFail($id);
         $notification->markAsRead();
 
+        $url = $notification->data['url'] ?? null;
+
+        if ($url) {
+            return redirect($url);
+        }
+
         return back();
     }
 

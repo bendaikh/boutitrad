@@ -7,6 +7,7 @@ use App\Models\CashTransaction;
 use App\Models\Client;
 use App\Models\Expense;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -41,19 +42,6 @@ class DashboardService
             'products_count' => Product::where('is_active', true)->count(),
             'low_stock_count' => Product::whereColumn('quantity', '<=', 'min_quantity')->count(),
         ];
-    }
-
-    public function orderStatusChart(?User $user = null): array
-    {
-        $query = Order::query()->select('status', DB::raw('count(*) as total'));
-        $this->scopeOrdersForUser($query, $user);
-
-        return $query->groupBy('status')
-            ->pluck('total', 'status')
-            ->mapWithKeys(fn ($total, $status) => [
-                OrderStatus::from($status)->label() => $total,
-            ])
-            ->toArray();
     }
 
     public function orderDistributionChart(?User $user = null): array
@@ -94,31 +82,6 @@ class DashboardService
         return compact('labels', 'validated', 'pending', 'cancelled', 'returns');
     }
 
-    public function monthlySalesChart(?User $user = null): array
-    {
-        $year = now()->year;
-
-        $query = Order::query()
-            ->where('status', OrderStatus::Livree)
-            ->whereYear('created_at', $year)
-            ->select(
-                DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month"),
-                DB::raw('SUM(total) as total')
-            );
-
-        $this->scopeOrdersForUser($query, $user);
-
-        $rows = $query->groupBy('month')->orderBy('month')->get()->keyBy('month');
-
-        $result = [];
-
-        foreach ($this->yearMonths($year) as $monthKey => $monthLabel) {
-            $result[$monthLabel] = $rows->has($monthKey) ? (float) $rows[$monthKey]->total : 0;
-        }
-
-        return $result;
-    }
-
     public function commercialPerformance(?User $user = null): array
     {
         if ($user?->isCommercial()) {
@@ -152,42 +115,103 @@ class DashboardService
             ->toArray();
     }
 
-    public function livreurPerformance(?User $user = null): array
+    public function commercialSalesByMonth(?User $user, int $year, int $month): array
     {
-        if ($user?->isLivreur()) {
-            return Order::where('livreur_id', $user->id)
-                ->where('status', OrderStatus::Livree)
-                ->select('livreur_id', DB::raw('COUNT(*) as count'))
-                ->groupBy('livreur_id')
-                ->get()
-                ->map(fn ($row) => [
-                    'name' => $user->name,
-                    'count' => $row->count,
-                ])
-                ->toArray();
-        }
+        $query = Order::query()
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month)
+            ->whereNotNull('commercial_id')
+            ->select(
+                'commercial_id',
+                DB::raw("SUM(CASE WHEN status = '".OrderStatus::Livree->value."' THEN 1 ELSE 0 END) as ventes_confi"),
+                DB::raw("SUM(CASE WHEN status = '".OrderStatus::Annulee->value."' THEN 1 ELSE 0 END) as ventes_annu"),
+                DB::raw("SUM(CASE WHEN status = '".OrderStatus::Retournee->value."' THEN 1 ELSE 0 END) as ventes_retour"),
+                DB::raw("SUM(CASE WHEN status = '".OrderStatus::Livree->value."' THEN total ELSE 0 END) as chiffre_realise"),
+            )
+            ->groupBy('commercial_id')
+            ->with('commercial:id,name,role');
 
-        return Order::where('status', OrderStatus::Livree)
-            ->whereNotNull('livreur_id')
-            ->select('livreur_id', DB::raw('COUNT(*) as count'))
-            ->groupBy('livreur_id')
-            ->with('livreur:id,name')
-            ->orderByDesc('count')
-            ->limit(10)
-            ->get()
+        $this->scopeOrdersForUser($query, $user);
+
+        return $query->get()
             ->map(fn ($row) => [
-                'name' => $row->livreur?->name ?? 'N/A',
-                'count' => $row->count,
+                'id' => $row->commercial?->formattedCommercialId() ?? '—',
+                'name' => $row->commercial?->name ?? 'N/A',
+                'ventes_confi' => (int) $row->ventes_confi,
+                'ventes_annu' => (int) $row->ventes_annu,
+                'ventes_retour' => (int) $row->ventes_retour,
+                'chiffre_realise' => (float) $row->chiffre_realise,
+            ])
+            ->sortByDesc('chiffre_realise')
+            ->values()
+            ->toArray();
+    }
+
+    public function topProductsByMonth(?User $user, int $year, int $month, int $limit = 15): array
+    {
+        $query = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->whereYear('orders.created_at', $year)
+            ->whereMonth('orders.created_at', $month)
+            ->where('orders.status', OrderStatus::Livree)
+            ->select(
+                'order_items.product_name',
+                DB::raw('SUM(order_items.quantity) as quantity_sold'),
+                DB::raw('SUM(order_items.total) as amount'),
+            )
+            ->groupBy('order_items.product_name')
+            ->orderByDesc('quantity_sold')
+            ->limit($limit);
+
+        $this->scopeOrdersForUser($query, $user, 'orders');
+
+        return $query->get()
+            ->map(fn ($row, $index) => [
+                'rank' => $index + 1,
+                'product_name' => $row->product_name,
+                'quantity_sold' => (int) $row->quantity_sold,
+                'amount' => (float) $row->amount,
             ])
             ->toArray();
     }
 
-    public function recentOrders(?User $user = null, int $limit = 5): \Illuminate\Database\Eloquent\Collection
+    public function activeCitiesByMonth(?User $user, int $year, int $month): array
     {
-        $query = Order::with(['client', 'commercial', 'livreur'])->latest();
-        $this->scopeOrdersForUser($query, $user);
+        $query = Order::query()
+            ->join('clients', 'clients.id', '=', 'orders.client_id')
+            ->whereYear('orders.created_at', $year)
+            ->whereMonth('orders.created_at', $month)
+            ->where('orders.status', OrderStatus::Livree)
+            ->whereNotNull('clients.city')
+            ->where('clients.city', '!=', '')
+            ->select(
+                'clients.city',
+                DB::raw('COUNT(orders.id) as orders_count'),
+                DB::raw('SUM(orders.total) as amount'),
+            )
+            ->groupBy('clients.city')
+            ->orderByDesc('orders_count');
 
-        return $query->limit($limit)->get();
+        $this->scopeOrdersForUser($query, $user, 'orders');
+
+        return $query->get()
+            ->map(fn ($row) => [
+                'city' => $row->city,
+                'orders_count' => (int) $row->orders_count,
+                'amount' => (float) $row->amount,
+            ])
+            ->toArray();
+    }
+
+    public function monthLabel(int $year, int $month): string
+    {
+        $labels = [
+            1 => 'Janvier', 2 => 'Février', 3 => 'Mars', 4 => 'Avril',
+            5 => 'Mai', 6 => 'Juin', 7 => 'Juillet', 8 => 'Août',
+            9 => 'Septembre', 10 => 'Octobre', 11 => 'Novembre', 12 => 'Décembre',
+        ];
+
+        return ($labels[$month] ?? '').' '.$year;
     }
 
     public function alerts(?User $user = null): array
@@ -205,7 +229,7 @@ class DashboardService
         }
 
         if (! $user || $user->isSuperAdmin()) {
-            $pending = Order::where('status', OrderStatus::Nouvelle)->count();
+            $pending = Order::whereIn('status', [OrderStatus::Nouvelle, OrderStatus::EnCours])->count();
             if ($pending > 0) {
                 $alerts[] = [
                     'type' => 'info',
@@ -235,16 +259,19 @@ class DashboardService
         return $months;
     }
 
-    private function scopeOrdersForUser($query, ?User $user): void
+    private function scopeOrdersForUser($query, ?User $user, string $table = ''): void
     {
         if (! $user) {
             return;
         }
 
+        $commercialColumn = $table ? "{$table}.commercial_id" : 'commercial_id';
+        $livreurColumn = $table ? "{$table}.livreur_id" : 'livreur_id';
+
         if ($user->isCommercial()) {
-            $query->where('commercial_id', $user->id);
+            $query->where($commercialColumn, $user->id);
         } elseif ($user->isLivreur()) {
-            $query->where('livreur_id', $user->id);
+            $query->where($livreurColumn, $user->id);
         }
     }
 }

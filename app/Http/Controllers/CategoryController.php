@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Brand;
 use App\Models\Category;
+use App\Support\ImageUpload;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -31,12 +32,11 @@ class CategoryController extends Controller
 
     public function storeCategory(Request $request): RedirectResponse
     {
+        ImageUpload::assertValidUpload($request, 'category_image');
         $validated = $this->validateCategory($request);
 
-        unset($validated['image']);
-
-        if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('category-images', 'public');
+        if ($path = ImageUpload::storeFromRequest($request, 'category_image', 'category-images')) {
+            $validated['image'] = $path;
         }
 
         $validated['is_active'] = $request->boolean('is_active', true);
@@ -48,15 +48,14 @@ class CategoryController extends Controller
 
     public function updateCategory(Request $request, Category $category): RedirectResponse
     {
+        ImageUpload::assertValidUpload($request, 'category_image');
         $validated = $this->validateCategory($request, $category);
 
-        unset($validated['image']);
-
-        if ($request->hasFile('image')) {
+        if ($request->hasFile('category_image')) {
             if ($category->image) {
                 Storage::disk('public')->delete($category->image);
             }
-            $validated['image'] = $request->file('image')->store('category-images', 'public');
+            $validated['image'] = ImageUpload::storeFromRequest($request, 'category_image', 'category-images');
         }
 
         $validated['is_active'] = $request->boolean('is_active', true);
@@ -83,12 +82,11 @@ class CategoryController extends Controller
 
     public function storeBrand(Request $request): RedirectResponse
     {
+        ImageUpload::assertValidUpload($request, 'brand_image');
         $validated = $this->validateBrand($request);
 
-        unset($validated['image']);
-
-        if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('brand-images', 'public');
+        if ($path = ImageUpload::storeFromRequest($request, 'brand_image', 'brand-images')) {
+            $validated['image'] = $path;
         }
 
         $validated['is_active'] = $request->boolean('is_active', true);
@@ -100,15 +98,14 @@ class CategoryController extends Controller
 
     public function updateBrand(Request $request, Brand $brand): RedirectResponse
     {
+        ImageUpload::assertValidUpload($request, 'brand_image');
         $validated = $this->validateBrand($request, $brand);
 
-        unset($validated['image']);
-
-        if ($request->hasFile('image')) {
+        if ($request->hasFile('brand_image')) {
             if ($brand->image) {
                 Storage::disk('public')->delete($brand->image);
             }
-            $validated['image'] = $request->file('image')->store('brand-images', 'public');
+            $validated['image'] = ImageUpload::storeFromRequest($request, 'brand_image', 'brand-images');
         }
 
         $validated['is_active'] = $request->boolean('is_active', true);
@@ -138,7 +135,7 @@ class CategoryController extends Controller
         return $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|mimes:jpeg,jpg|max:2048',
+            'category_image' => ImageUpload::RULE,
         ]);
     }
 
@@ -147,7 +144,7 @@ class CategoryController extends Controller
         return $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|mimes:jpeg,jpg|max:2048',
+            'brand_image' => ImageUpload::RULE,
         ]);
     }
 }

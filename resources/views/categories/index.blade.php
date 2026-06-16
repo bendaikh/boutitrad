@@ -43,9 +43,10 @@
                         </div>
                         <label for="category_image" class="block w-full cursor-pointer rounded-md border border-brand-200 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/40 px-1 py-1.5 text-center text-[10px] font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/60 transition-colors">
                             Choisir fichier
-                            <input type="file" id="category_image" name="image" accept="image/jpeg,image/jpg,.jpg,.jpeg" class="sr-only" onchange="previewImage(event, 'category-image-preview')">
+                            <input type="file" id="category_image" name="category_image" accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp" class="sr-only" onchange="previewImage(event, 'category-image-preview')">
                         </label>
-                        @error('image')<p class="text-red-500 text-[10px] text-center">{{ $message }}</p>@enderror
+                        @error('category_image')<p class="text-red-500 text-[10px] text-center">{{ $message }}</p>@enderror
+                        <p class="text-[9px] text-slate-400 text-center leading-tight">JPG, PNG, WebP · max. 5 Mo</p>
                     </div>
                     <div class="flex-1 min-w-0 space-y-2">
                         <div>
@@ -175,9 +176,10 @@
                         </div>
                         <label for="brand_image" class="block w-full cursor-pointer rounded-md border border-brand-200 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/40 px-1 py-1.5 text-center text-[10px] font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/60 transition-colors">
                             Choisir fichier
-                            <input type="file" id="brand_image" name="image" accept="image/jpeg,image/jpg,.jpg,.jpeg" class="sr-only" onchange="previewImage(event, 'brand-image-preview')">
+                            <input type="file" id="brand_image" name="brand_image" accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp" class="sr-only" onchange="previewImage(event, 'brand-image-preview')">
                         </label>
-                        @error('image')<p class="text-red-500 text-[10px] text-center">{{ $message }}</p>@enderror
+                        @error('brand_image')<p class="text-red-500 text-[10px] text-center">{{ $message }}</p>@enderror
+                        <p class="text-[9px] text-slate-400 text-center leading-tight">JPG, PNG, WebP · max. 5 Mo</p>
                     </div>
                     <div class="flex-1 min-w-0 space-y-2">
                         <div>

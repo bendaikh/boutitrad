@@ -44,50 +44,118 @@ $usersIcon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 
         <div class="h-80 sm:h-96"><canvas id="orderDistributionChart"></canvas></div>
     </div>
 
-    {{-- Secondary content --}}
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div class="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="admin-card p-4">
-                <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Commandes par statut</h3>
-                <div class="h-44"><canvas id="orderStatusChart"></canvas></div>
+    {{-- Monthly reports --}}
+    <div class="admin-card p-4">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5 pb-4 border-b border-slate-100 dark:border-slate-700">
+            <div>
+                <h3 class="admin-section-title">Rapports mensuels</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ $monthLabel }}</p>
             </div>
-            <div class="admin-card p-4">
-                <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Ventes mensuelles <span class="text-xs font-normal text-slate-500 dark:text-slate-400">({{ now()->year }})</span></h3>
-                <div class="h-44"><canvas id="monthlySalesChart"></canvas></div>
-            </div>
-            @if($user->isSuperAdmin())
-                <div class="admin-card p-4">
-                    <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Commerciaux</h3>
-                    <div class="h-40"><canvas id="commercialChart"></canvas></div>
+            <form method="GET" class="flex flex-wrap items-end gap-2">
+                <div>
+                    <label for="report-month" class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Mois</label>
+                    <input
+                        type="month"
+                        id="report-month"
+                        name="month"
+                        value="{{ $selectedMonth }}"
+                        class="form-input text-sm py-1.5"
+                    >
                 </div>
-                <div class="admin-card p-4">
-                    <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Livreurs</h3>
-                    <div class="h-40"><canvas id="livreurChart"></canvas></div>
-                </div>
-            @endif
+                <button type="submit" class="px-4 py-1.5 btn-dark text-sm">Afficher</button>
+            </form>
         </div>
 
-        <div class="admin-card flex flex-col max-h-[420px] xl:max-h-none">
-            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
-                <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">Activité récente</h3>
-                <a href="{{ route('orders.index') }}" class="text-xs link-brand">Tout voir</a>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+            <div class="bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col min-h-[320px]">
+                <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">Diagramme commerciaux</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Chiffre réalisé par commercial</p>
+                <div class="flex-1 min-h-[260px]">
+                    <canvas id="commercialChart"></canvas>
+                </div>
             </div>
-            <div class="admin-list-divider overflow-y-auto flex-1">
-                @forelse($recentOrders as $order)
-                    <a href="{{ route('orders.show', $order) }}" class="admin-list-item">
-                        <div class="min-w-0 flex-1">
-                            <div class="text-sm font-medium link-brand truncate">{{ $order->reference }}</div>
-                            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ $order->client->name }}</div>
-                        </div>
-                        <div class="text-right shrink-0">
-                            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ number_format($order->total, 0, ',', ' ') }} DH</div>
-                            <div class="mt-0.5"><x-admin.status-badge :status="$order->status" /></div>
-                        </div>
-                    </a>
-                @empty
-                    <p class="px-5 py-8 text-sm text-slate-500 dark:text-slate-400 text-center">Aucune commande</p>
-                @endforelse
-            </div>
+
+            <x-admin.data-table compact class="min-h-[320px]">
+                <x-slot:header>Ventes par commercial</x-slot:header>
+                <thead>
+                    <tr>
+                        <th class="text-left">ID</th>
+                        <th class="text-left">Nom commercial</th>
+                        <th class="text-right">Confi.</th>
+                        <th class="text-right">Annu.</th>
+                        <th class="text-right">Retour</th>
+                        <th class="text-right">Chiffre</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    @forelse($commercialSalesByMonth as $row)
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td class="admin-table-cell font-mono text-xs">{{ $row['id'] }}</td>
+                            <td class="admin-table-cell font-medium">{{ $row['name'] }}</td>
+                            <td class="admin-table-cell text-right">{{ number_format($row['ventes_confi'], 0, ',', ' ') }}</td>
+                            <td class="admin-table-cell text-right text-red-600 dark:text-red-400">{{ number_format($row['ventes_annu'], 0, ',', ' ') }}</td>
+                            <td class="admin-table-cell text-right text-orange-600 dark:text-orange-400">{{ number_format($row['ventes_retour'], 0, ',', ' ') }}</td>
+                            <td class="admin-table-cell text-right font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{{ number_format($row['chiffre_realise'], 2, ',', ' ') }} DH</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-5 py-6 text-center text-slate-500 dark:text-slate-400">Aucune vente pour ce mois</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </x-admin.data-table>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <x-admin.data-table compact>
+                <x-slot:header>Articles les plus vendus — {{ $monthLabel }}</x-slot:header>
+                    <thead>
+                        <tr>
+                            <th class="text-left w-10">#</th>
+                            <th class="text-left">Article</th>
+                            <th class="text-right">Qté vendue</th>
+                            <th class="text-right">Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        @forelse($topProductsByMonth as $row)
+                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                <td class="admin-table-cell text-slate-500">{{ $row['rank'] }}</td>
+                                <td class="admin-table-cell font-medium">{{ $row['product_name'] }}</td>
+                                <td class="admin-table-cell text-right">{{ number_format($row['quantity_sold'], 0, ',', ' ') }}</td>
+                                <td class="admin-table-cell text-right">{{ number_format($row['amount'], 2, ',', ' ') }} DH</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="px-5 py-6 text-center text-slate-500 dark:text-slate-400">Aucun article vendu ce mois</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+            </x-admin.data-table>
+
+            <x-admin.data-table compact>
+                <x-slot:header>Villes actives — {{ $monthLabel }}</x-slot:header>
+                <thead>
+                    <tr>
+                        <th class="text-left">Ville</th>
+                        <th class="text-right">Commandes</th>
+                        <th class="text-right">Chiffre</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    @forelse($activeCitiesByMonth as $row)
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td class="admin-table-cell font-medium">{{ $row['city'] }}</td>
+                            <td class="admin-table-cell text-right">{{ number_format($row['orders_count'], 0, ',', ' ') }}</td>
+                            <td class="admin-table-cell text-right font-medium">{{ number_format($row['amount'], 2, ',', ' ') }} DH</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="3" class="px-5 py-6 text-center text-slate-500 dark:text-slate-400">Aucune ville active ce mois</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </x-admin.data-table>
         </div>
     </div>
 </div>
@@ -166,79 +234,48 @@ document.addEventListener('DOMContentLoaded', function() {
         },
     });
 
-    new Chart(document.getElementById('orderStatusChart'), {
-        type: 'doughnut',
-        data: {
-            labels: @json(array_keys($orderStatusChart)),
-            datasets: [{
-                data: @json(array_values($orderStatusChart)),
-                backgroundColor: ['#2563eb','#3b82f6','#22c55e','#eab308','#06b6d4','#ef4444','#f97316','#8b5cf6'],
-                borderWidth: 0,
-            }],
-        },
-        options: {
-            ...base,
-            cutout: '65%',
-            plugins: {
-                legend: { display: true, position: 'right', labels: { boxWidth: 10, font: { size: 10 }, padding: 8, color: legendColor() } },
-            },
-        },
-    });
+    const commercialLabels = @json(array_column($commercialSalesByMonth, 'name'));
+    const commercialTotals = @json(array_column($commercialSalesByMonth, 'chiffre_realise'));
 
-    new Chart(document.getElementById('monthlySalesChart'), {
-        type: 'line',
-        data: {
-            labels: @json(array_keys($monthlySalesChart)),
-            datasets: [{
-                data: @json(array_values($monthlySalesChart)),
-                borderColor: chartColors.brand,
-                backgroundColor: chartColors.brandLight,
-                fill: true,
-                tension: 0.3,
-                pointRadius: 3,
-                borderWidth: 2,
-            }],
-        },
-        options: {
-            ...base,
-            scales: {
-                x: { ticks: { font: { size: 10 }, autoSkip: false, maxRotation: 45, minRotation: 0, color: tickColor() }, grid: { display: false } },
-                y: { beginAtZero: true, ticks: { font: { size: 10 }, maxTicksLimit: 5, color: tickColor() }, grid: { color: gridColor() } },
+    if (document.getElementById('commercialChart')) {
+        new Chart(document.getElementById('commercialChart'), {
+            type: 'bar',
+            data: {
+                labels: commercialLabels.length ? commercialLabels : ['—'],
+                datasets: [{
+                    label: 'Chiffre réalisé (DH)',
+                    data: commercialTotals.length ? commercialTotals : [0],
+                    backgroundColor: chartColors.brand,
+                    borderRadius: 6,
+                    maxBarThickness: 48,
+                }],
             },
-        },
-    });
-
-    @if($user->isSuperAdmin())
-    new Chart(document.getElementById('commercialChart'), {
-        type: 'bar',
-        data: {
-            labels: @json(array_column($commercialPerformance, 'name')),
-            datasets: [{ data: @json(array_column($commercialPerformance, 'total')), backgroundColor: chartColors.brand, borderRadius: 4 }],
-        },
-        options: {
-            ...base,
-            scales: {
-                x: { ticks: { font: { size: 10 }, color: tickColor() }, grid: { display: false } },
-                y: { beginAtZero: true, ticks: { font: { size: 10 }, maxTicksLimit: 4, color: tickColor() }, grid: { color: gridColor() } },
+            options: {
+                ...base,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ' ' + new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(ctx.raw) + ' DH',
+                        },
+                    },
+                },
+                scales: {
+                    x: { ticks: { font: { size: 11 }, color: tickColor() }, grid: { display: false } },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            font: { size: 10 },
+                            maxTicksLimit: 5,
+                            color: tickColor(),
+                            callback: (v) => new Intl.NumberFormat('fr-FR', { notation: 'compact' }).format(v),
+                        },
+                        grid: { color: gridColor() },
+                    },
+                },
             },
-        },
-    });
-
-    new Chart(document.getElementById('livreurChart'), {
-        type: 'bar',
-        data: {
-            labels: @json(array_column($livreurPerformance, 'name')),
-            datasets: [{ data: @json(array_column($livreurPerformance, 'count')), backgroundColor: chartColors.validated, borderRadius: 4 }],
-        },
-        options: {
-            ...base,
-            scales: {
-                x: { ticks: { font: { size: 10 }, color: tickColor() }, grid: { display: false } },
-                y: { beginAtZero: true, ticks: { font: { size: 10 }, maxTicksLimit: 4, color: tickColor() }, grid: { color: gridColor() } },
-            },
-        },
-    });
-    @endif
+        });
+    }
 });
 </script>
 @endpush

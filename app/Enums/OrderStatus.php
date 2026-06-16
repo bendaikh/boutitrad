@@ -17,7 +17,7 @@ enum OrderStatus: string
     {
         return match ($this) {
             self::Nouvelle => 'Nouvelle',
-            self::EnCours => 'En cours',
+            self::EnCours => 'En attente validation',
             self::Confirmee => 'Confirmée',
             self::EnPreparation => 'En préparation',
             self::Expediee => 'Expédiée',

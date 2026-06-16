@@ -5,20 +5,31 @@
                 <x-slot:footer>{{ $orders->links() }}</x-slot:footer>
             @endif
             <thead><tr>
-                <th class="text-left">Référence</th><th class="text-left">Client</th>
-                <th class="text-left">Livreur</th><th class="text-left">Statut</th><th class="text-left">Date</th>
+                <th class="text-left">Référence</th>
+                <th class="text-left">Client</th>
+                <th class="text-left">Partenaire</th>
+                <th class="text-left">Ref. tracking</th>
+                <th class="text-left">Statut</th>
+                <th class="text-right">Montant</th>
+                <th class="text-left">Envoi partenaire</th>
+                <th class="text-right">Action</th>
             </tr></thead>
             <tbody class="divide-y">
                 @forelse($orders as $order)
-                    <tr class="hover:bg-slate-50">
-                        <td class="px-5 py-3"><a href="{{ route('orders.show', $order) }}" class="text-brand-600 font-medium">{{ $order->reference }}</a></td>
-                        <td class="px-5 py-3">{{ $order->client->name }}</td>
-                        <td class="px-5 py-3">{{ $order->livreur?->name ?? 'Non assigné' }}</td>
-                        <td class="px-5 py-3"><x-admin.status-badge :status="$order->status" /></td>
-                        <td class="px-5 py-3">{{ $order->created_at->format('d/m/Y') }}</td>
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                        <td class="admin-table-cell font-mono text-xs font-medium">{{ $order->reference }}</td>
+                        <td class="admin-table-cell">{{ $order->client->name }}</td>
+                        <td class="admin-table-cell">{{ $order->deliveryPartner?->name ?? '—' }}</td>
+                        <td class="admin-table-cell font-mono text-xs">{{ $order->partner_tracking_ref ?? '—' }}</td>
+                        <td class="admin-table-cell"><x-admin.status-badge :status="$order->status" /></td>
+                        <td class="admin-table-cell text-right">{{ number_format($order->total, 2, ',', ' ') }} DH</td>
+                        <td class="admin-table-cell">{{ $order->sent_to_partner_at?->format('d/m/Y H:i') ?? '—' }}</td>
+                        <td class="admin-table-cell text-right">
+                            <a href="{{ route('deliveries.orders.show', $order) }}" class="text-brand-600 text-sm font-medium hover:underline">Traiter</a>
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="px-5 py-3 text-center text-slate-500 dark:text-slate-400">Aucun transport en cours</td></tr>
+                    <tr><td colspan="8" class="px-5 py-8 text-center text-slate-500 dark:text-slate-400">Aucun transport en cours</td></tr>
                 @endforelse
             </tbody>
         </x-admin.data-table>

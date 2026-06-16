@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentMode;
 use App\Enums\UserRole;
 use App\Models\Client;
+use App\Models\DeliveryPartner;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
@@ -14,6 +15,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\CommissionService;
 use App\Services\OrderListService;
+use App\Services\OrderWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +27,7 @@ class OrderController extends Controller
     public function __construct(
         private OrderListService $orderList,
         private CommissionService $commissionService,
+        private OrderWorkflowService $workflow,
     ) {}
 
     public function index(Request $request): View
@@ -40,6 +43,7 @@ class OrderController extends Controller
 
     public function create(): View
     {
+        $user = auth()->user();
         $clients = Client::where('is_active', true)->orderBy('name')->get();
 
         return view('orders.create', [
@@ -65,6 +69,7 @@ class OrderController extends Controller
             'paymentModes' => PaymentMode::cases(),
             'previewReference' => Order::generateReference(),
             'defaultDeliveryCost' => (float) Setting::get('delivery_fee', 0),
+            'isCommercial' => $user->isCommercial(),
         ]);
     }
 
@@ -84,9 +89,17 @@ class OrderController extends Controller
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_price' => 'required|numeric|min:0',
+            'submit_action' => 'nullable|in:draft,submit',
         ]);
 
-        $order = DB::transaction(function () use ($validated) {
+        $user = auth()->user();
+
+        if ($user->isCommercial()) {
+            $validated['commercial_id'] = $user->id;
+            $validated['livreur_id'] = null;
+        }
+
+        $order = DB::transaction(function () use ($validated, $user) {
             $subtotal = 0;
             $items = [];
 
@@ -149,25 +162,98 @@ class OrderController extends Controller
             return $order;
         });
 
-        return redirect()->route('orders.show', $order)->with('success', 'Commande créée.');
+        $submitToAdmin = ($validated['submit_action'] ?? '') === 'submit';
+
+        if ($submitToAdmin) {
+            try {
+                $this->workflow->submitToAdmin($order->fresh(), $user);
+            } catch (\InvalidArgumentException $e) {
+                return redirect()
+                    ->route('orders.show', $order)
+                    ->with('success', 'Commande créée.')
+                    ->withErrors(['workflow' => $e->getMessage()]);
+            }
+
+            return redirect()
+                ->route('orders.show', $order)
+                ->with('success', 'Commande créée et envoyée à l\'admin pour validation.');
+        }
+
+        return redirect()
+            ->route('orders.show', $order)
+            ->with('success', $user->isCommercial()
+                ? 'Commande enregistrée. Cliquez sur « Envoyer à l\'admin » pour la soumettre.'
+                : 'Commande créée.');
     }
 
     public function show(Order $order): View
     {
         $this->authorizeOrder($order);
-        $order->load(['client', 'commercial', 'livreur', 'items.product', 'statusHistories.user']);
+        $order->load(['client', 'commercial', 'livreur', 'deliveryPartner', 'items.product', 'statusHistories.user']);
 
         return view('orders.show', [
             'order' => $order,
-            'statuses' => OrderStatus::cases(),
+            'statuses' => $this->workflow->allowedStatusesFor(auth()->user(), $order),
+            'partners' => DeliveryPartner::query()->where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(),
             'commercials' => User::where('role', UserRole::Commercial)->where('is_active', true)->get(),
             'livreurs' => User::where('role', UserRole::Livreur)->where('is_active', true)->get(),
         ]);
     }
 
+    public function submitToAdmin(Order $order): RedirectResponse
+    {
+        $this->authorizeOrder($order);
+
+        try {
+            $this->workflow->submitToAdmin($order, auth()->user());
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Commande envoyée à l\'admin pour validation.');
+    }
+
+    public function validateAndDispatch(Request $request, Order $order): RedirectResponse
+    {
+        $this->authorizeOrder($order);
+
+        $validated = $request->validate([
+            'delivery_partner_id' => ['nullable', 'exists:delivery_partners,id'],
+        ]);
+
+        try {
+            $this->workflow->validateAndDispatchToPartner(
+                $order,
+                auth()->user(),
+                $validated['delivery_partner_id'] ?? null,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Commande validée et transmise au partenaire de livraison.');
+    }
+
+    public function rejectOrder(Request $request, Order $order): RedirectResponse
+    {
+        $this->authorizeOrder($order);
+
+        try {
+            $this->workflow->rejectOrder($order, auth()->user(), $request->input('notes'));
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Commande rejetée.');
+    }
+
     public function updateStatus(Request $request, Order $order): RedirectResponse
     {
         $this->authorizeOrder($order);
+
+        if (! auth()->user()->isSuperAdmin()) {
+            abort(403, 'Seul l\'admin peut modifier le statut manuellement.');
+        }
 
         $validated = $request->validate([
             'status' => 'required|string',

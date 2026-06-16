@@ -53,15 +53,20 @@
                     <input type="text" x-model="clientName" readonly class="admin-order-form-readonly">
                 </div>
                 <div class="col-span-2 md:col-span-1 xl:col-span-2">
-                    <label for="commercial_id" class="admin-order-form-label">Commercial</label>
-                    <select id="commercial_id" name="commercial_id" x-model="commercialId" class="admin-order-form-input">
-                        <option value="">Auto</option>
-                        @foreach($commercials as $commercial)
-                            <option value="{{ $commercial->id }}" @selected(old('commercial_id') == $commercial->id)>
-                                {{ $commercial->name }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <label class="admin-order-form-label">Commercial</label>
+                    @if($isCommercial)
+                        <input type="hidden" name="commercial_id" value="{{ auth()->id() }}">
+                        <input type="text" value="{{ auth()->user()->name }}" readonly class="admin-order-form-readonly">
+                    @else
+                        <select id="commercial_id" name="commercial_id" x-model="commercialId" class="admin-order-form-input">
+                            <option value="">Auto</option>
+                            @foreach($commercials as $commercial)
+                                <option value="{{ $commercial->id }}" @selected(old('commercial_id') == $commercial->id)>
+                                    {{ $commercial->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @endif
                 </div>
             </div>
         </div>
@@ -73,6 +78,7 @@
                     <label class="admin-order-form-label">Ville livraison</label>
                     <input type="text" x-model="clientCity" readonly class="admin-order-form-readonly">
                 </div>
+                @if(! $isCommercial)
                 <div>
                     <label for="livreur_id" class="admin-order-form-label">Livreur</label>
                     <select id="livreur_id" name="livreur_id" class="admin-order-form-input">
@@ -84,6 +90,7 @@
                         @endforeach
                     </select>
                 </div>
+                @endif
                 <div>
                     <label for="payment_mode" class="admin-order-form-label">Mode de paiement</label>
                     <select id="payment_mode" name="payment_mode" x-model="paymentMode" class="admin-order-form-input">
@@ -236,7 +243,12 @@
 
         <div class="admin-product-form-actions">
             <a href="{{ route('orders.index') }}" class="btn-secondary">Annuler</a>
-            <button type="submit" class="btn-primary">Créer la commande</button>
+            @if($isCommercial)
+                <button type="submit" name="submit_action" value="draft" class="btn-secondary">Enregistrer brouillon</button>
+                <button type="submit" name="submit_action" value="submit" class="btn-primary bg-emerald-600 hover:bg-emerald-700 border-emerald-600">Créer et envoyer à l'admin</button>
+            @else
+                <button type="submit" name="submit_action" value="draft" class="btn-primary">Créer la commande</button>
+            @endif
         </div>
     </form>
 

@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\Client;
 use App\Models\CommercialObjective;
 use App\Models\Commission;
+use App\Models\DeliveryPartner;
 use App\Models\Expense;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -117,6 +118,15 @@ class DemoDataSeeder extends Seeder
         foreach (['Caisse principale', 'Banque Attijariwafa', 'Banque BMCE'] as $treasuryName) {
             Treasury::firstOrCreate(['name' => $treasuryName], ['is_active' => true]);
         }
+
+        DeliveryPartner::firstOrCreate(['code' => 'cathedis'], [
+            'name' => 'Cathedis',
+            'contact_email' => 'contact@cathedis.ma',
+            'contact_phone' => '+212 520 255 255',
+            'api_url' => config('cathedis.api_url'),
+            'is_active' => true,
+            'is_default' => true,
+        ]);
 
         CashTransaction::firstOrCreate(['reference' => 'REC-001'], [
             'type' => 'in', 'amount' => 50000, 'description' => 'Encaissement ventes',

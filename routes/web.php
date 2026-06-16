@@ -35,6 +35,9 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('clients', ClientController::class);
         Route::resource('orders', OrderController::class)->except(['edit', 'update', 'destroy']);
         Route::patch('orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.status');
+        Route::post('orders/{order}/submit', [OrderController::class, 'submitToAdmin'])->name('orders.submit');
+        Route::post('orders/{order}/dispatch', [OrderController::class, 'validateAndDispatch'])->name('orders.dispatch');
+        Route::post('orders/{order}/reject', [OrderController::class, 'rejectOrder'])->name('orders.reject');
         Route::get('orders/{order}/invoice', [OrderController::class, 'invoice'])->name('orders.invoice');
         Route::get('sales/balance', [SalesController::class, 'balance'])->name('sales.balance');
         Route::get('sales/balance/print', [SalesController::class, 'balancePrint'])->name('sales.balance.print');
@@ -67,7 +70,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('deliveries', fn () => redirect()->route('deliveries.transport'))->name('deliveries.index');
         Route::get('deliveries/partners', [DeliveryController::class, 'partners'])->name('deliveries.partners');
         Route::get('deliveries/transport', [DeliveryController::class, 'transport'])->name('deliveries.transport');
+        Route::get('deliveries/orders/{order}', [DeliveryController::class, 'showOrder'])->name('deliveries.orders.show');
+        Route::post('deliveries/orders/{order}/complete', [DeliveryController::class, 'completeOrder'])->name('deliveries.orders.complete');
         Route::get('deliveries/livreurs', [DeliveryController::class, 'livreurs'])->name('deliveries.livreurs');
+    });
+
+    Route::middleware('role:superadmin')->group(function () {
+        Route::post('deliveries/partners', [DeliveryController::class, 'storePartner'])->name('deliveries.partners.store');
     });
 
     Route::middleware('role:superadmin,commercial')->group(function () {
