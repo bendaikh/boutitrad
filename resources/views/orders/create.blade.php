@@ -1,12 +1,15 @@
-﻿<x-admin-layout title="Nouvelle commande">
+﻿<x-admin-layout title="{{ isset($order) ? 'Modifier commande' : 'Nouvelle commande' }}">
+    @php $editing = isset($order); @endphp
     <form
         method="POST"
-        action="{{ route('orders.store') }}"
-        class="admin-form-shell max-w-full"
+        action="{{ $editing ? route('orders.update', $order) : route('orders.store') }}"
+        class="admin-form-shell admin-order-create-form max-w-full mb-4 sm:mb-0"
         x-data="orderForm()"
     >
         @csrf
+        @if($editing) @method('PUT') @endif
 
+        <div class="admin-order-create-body">
         {{-- Barre 1 --}}
         <div class="admin-order-form-bar">
             <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-x-2 gap-y-2">
@@ -16,7 +19,7 @@
                         type="date"
                         id="order_date"
                         name="order_date"
-                        value="{{ old('order_date', now()->format('Y-m-d')) }}"
+                        value="{{ old('order_date', $order?->created_at?->format('Y-m-d') ?? now()->format('Y-m-d')) }}"
                         class="admin-order-form-input"
                     >
                 </div>
@@ -41,7 +44,7 @@
                     >
                         <option value="">Sélectionner...</option>
                         @foreach($clients as $client)
-                            <option value="{{ $client->id }}" @selected(old('client_id') == $client->id)>
+                            <option value="{{ $client->id }}" @selected(old('client_id', $order?->client_id) == $client->id)>
                                 {{ $client->formattedId() }}
                             </option>
                         @endforeach
@@ -61,7 +64,7 @@
                         <select id="commercial_id" name="commercial_id" x-model="commercialId" class="admin-order-form-input">
                             <option value="">Auto</option>
                             @foreach($commercials as $commercial)
-                                <option value="{{ $commercial->id }}" @selected(old('commercial_id') == $commercial->id)>
+                                <option value="{{ $commercial->id }}" @selected(old('commercial_id', $order?->commercial_id) == $commercial->id)>
                                     {{ $commercial->name }}
                                 </option>
                             @endforeach
@@ -84,7 +87,7 @@
                     <select id="livreur_id" name="livreur_id" class="admin-order-form-input">
                         <option value="">Non assigné</option>
                         @foreach($livreurs as $livreur)
-                            <option value="{{ $livreur->id }}" @selected(old('livreur_id') == $livreur->id)>
+                            <option value="{{ $livreur->id }}" @selected(old('livreur_id', $order?->livreur_id) == $livreur->id)>
                                 {{ $livreur->name }}
                             </option>
                         @endforeach
@@ -96,7 +99,7 @@
                     <select id="payment_mode" name="payment_mode" x-model="paymentMode" class="admin-order-form-input">
                         <option value="">—</option>
                         @foreach($paymentModes as $mode)
-                            <option value="{{ $mode->value }}" @selected(old('payment_mode') === $mode->value)>
+                            <option value="{{ $mode->value }}" @selected(old('payment_mode', $order?->payment_mode?->value) === $mode->value)>
                                 {{ $mode->label() }}
                             </option>
                         @endforeach
@@ -240,14 +243,19 @@
             @error('items')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
             @error('items.*.product_id')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
         </div>
+        </div>
 
-        <div class="admin-product-form-actions">
-            <a href="{{ route('orders.index') }}" class="btn-secondary">Annuler</a>
-            @if($isCommercial)
-                <button type="submit" name="submit_action" value="draft" class="btn-secondary">Enregistrer brouillon</button>
+        <div class="admin-order-form-actions">
+            @if($isCommercial && ! $editing)
                 <button type="submit" name="submit_action" value="submit" class="btn-primary bg-emerald-600 hover:bg-emerald-700 border-emerald-600">Créer et envoyer à l'admin</button>
+                <button type="submit" name="submit_action" value="draft" class="btn-secondary">Enregistrer brouillon</button>
+                <a href="{{ route('orders.index') }}" class="btn-secondary">Annuler</a>
+            @elseif($editing)
+                <button type="submit" class="btn-primary">Enregistrer les modifications</button>
+                <a href="{{ route('orders.index') }}" class="btn-secondary">Annuler</a>
             @else
                 <button type="submit" name="submit_action" value="draft" class="btn-primary">Créer la commande</button>
+                <a href="{{ route('orders.index') }}" class="btn-secondary">Annuler</a>
             @endif
         </div>
     </form>
@@ -257,16 +265,29 @@
     function orderForm() {
         const clients = @json($clientsData);
         const products = @json($productsData);
+        const initialItems = @json($initialItems ?? []);
+
+        function buildItem(data = {}) {
+            const product = products.find(p => String(p.id) === String(data.product_id || ''));
+
+            return {
+                product_id: data.product_id ? String(data.product_id) : '',
+                quantity: data.quantity ?? '',
+                name: product?.name ?? '',
+                unit_price: data.unit_price ?? product?.sale_price ?? 0,
+                stock: product?.stock ?? 0,
+            };
+        }
 
         return {
-            clientId: @json(old('client_id', '')),
+            clientId: @json(old('client_id', $order?->client_id ?? '')),
             clientName: '',
             clientCity: '',
-            commercialId: @json(old('commercial_id', '')),
-            paymentMode: @json(old('payment_mode', '')),
-            deliveryCost: @json(old('delivery_cost', $defaultDeliveryCost)),
+            commercialId: @json(old('commercial_id', $order?->commercial_id ?? '')),
+            paymentMode: @json(old('payment_mode', $order?->payment_mode?->value ?? '')),
+            deliveryCost: @json(old('delivery_cost', $order?->delivery_cost ?? $defaultDeliveryCost)),
             showStock: true,
-            items: [newItem()],
+            items: initialItems.length ? initialItems.map(item => buildItem(item)) : [buildItem()],
             init() {
                 if (this.clientId) {
                     this.onClientChange();
@@ -287,6 +308,9 @@
                 }
                 if (client.payment_mode) {
                     this.paymentMode = client.payment_mode;
+                }
+                if (client.delivery_cost > 0) {
+                    this.deliveryCost = client.delivery_cost;
                 }
             },
             onProductChange(index) {
@@ -376,7 +400,7 @@
                 return '';
             },
             addItem() {
-                this.items.push(newItem());
+                this.items.push(buildItem());
             },
             removeItem(index) {
                 if (this.items.length > 1) {
@@ -384,10 +408,6 @@
                 }
             },
         };
-
-        function newItem() {
-            return { product_id: '', quantity: '', name: '', unit_price: 0, stock: 0 };
-        }
     }
     </script>
     @endpush

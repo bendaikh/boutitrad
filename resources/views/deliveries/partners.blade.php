@@ -1,6 +1,46 @@
 ﻿<x-admin-layout title="Partenaires">
     <div class="space-y-5">
         <div class="admin-card p-6">
+            <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">Intégration Cathedis</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm mb-4">
+                <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                    <p class="text-xs text-slate-500">API activée</p>
+                    <p class="font-semibold {{ ($cathedis['enabled'] ?? false) ? 'text-emerald-600' : 'text-amber-600' }}">{{ ($cathedis['enabled'] ?? false) ? 'Oui' : 'Non' }}</p>
+                </div>
+                <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                    <p class="text-xs text-slate-500">Identifiants configurés</p>
+                    <p class="font-semibold {{ ($cathedis['configured'] ?? false) ? 'text-emerald-600' : 'text-amber-600' }}">{{ ($cathedis['configured'] ?? false) ? 'Oui' : 'Non' }}</p>
+                    @if(!empty($cathedis['auth_mode']))
+                        <p class="text-xs text-slate-500 mt-1">Mode : {{ $cathedis['auth_mode'] === 'login' ? 'connexion web' : 'token API' }}</p>
+                    @endif
+                </div>
+                <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                    <p class="text-xs text-slate-500">Villes en système</p>
+                    <p class="font-semibold">{{ $cathedis['cities_count'] ?? 0 }}</p>
+                </div>
+                <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                    <p class="text-xs text-slate-500">URL API</p>
+                    <p class="font-mono text-xs break-all">{{ $cathedis['api_url'] ?? '—' }}</p>
+                </div>
+            </div>
+            @if(auth()->user()->isSuperAdmin())
+                <div class="flex flex-wrap gap-2">
+                    <form method="POST" action="{{ route('deliveries.cathedis.sync-cities') }}">
+                        @csrf
+                        <button type="submit" class="px-4 py-2 btn-dark text-sm">Synchroniser les villes</button>
+                    </form>
+                    <form method="POST" action="{{ route('deliveries.cathedis.test') }}">
+                        @csrf
+                        <button type="submit" class="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700">Tester la connexion</button>
+                    </form>
+                </div>
+            @endif
+            <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                Circuit : commercial envoie → admin modifie/valide → transmission automatique Cathedis à la validation.
+            </p>
+        </div>
+
+        <div class="admin-card p-6">
             <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">Partenaires de livraison</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
                 Les commandes validées par l'admin sont transmises automatiquement au partenaire sélectionné (ex. Cathedis) pour livraison et encaissement COD.
@@ -74,7 +114,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium mb-1">URL API</label>
-                        <input type="url" name="api_url" class="form-input w-full text-sm" placeholder="https://api.cathedis.ma">
+                        <input type="url" name="api_url" class="form-input w-full text-sm" placeholder="https://api.cathedis.delivery">
                     </div>
                     <div>
                         <label class="block text-xs font-medium mb-1">Token API</label>
@@ -87,7 +127,10 @@
                     <button type="submit" class="px-4 py-2 btn-dark text-sm">Enregistrer</button>
                 </form>
                 <p class="mt-4 text-xs text-slate-500 dark:text-slate-400">
-                    API Cathedis : configurez aussi <code class="text-xs">CATHEDIS_ENABLED=true</code> et <code class="text-xs">CATHEDIS_API_TOKEN</code> dans le fichier <code class="text-xs">.env</code>.
+                    API Cathedis : dans <code class="text-xs">.env</code>, mettez <code class="text-xs">CATHEDIS_ENABLED=true</code> et vos identifiants de connexion
+                    (<code class="text-xs">CATHEDIS_USERNAME</code> + <code class="text-xs">CATHEDIS_PASSWORD</code> — les mêmes que sur
+                    <a href="https://api.cathedis.delivery/" target="_blank" rel="noopener" class="underline">api.cathedis.delivery</a>).
+                    Un token API (<code class="text-xs">CATHEDIS_API_TOKEN</code>) n'est requis que si Cathedis vous en a fourni un.
                 </p>
             </div>
         @endif

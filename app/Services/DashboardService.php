@@ -259,14 +259,16 @@ class DashboardService
         return $months;
     }
 
-    private function scopeOrdersForUser($query, ?User $user, string $table = ''): void
+    private function scopeOrdersForUser($query, ?User $user, ?string $table = null): void
     {
         if (! $user) {
             return;
         }
 
-        $commercialColumn = $table ? "{$table}.commercial_id" : 'commercial_id';
-        $livreurColumn = $table ? "{$table}.livreur_id" : 'livreur_id';
+        $table ??= $query->getModel()->getTable();
+
+        $commercialColumn = "{$table}.commercial_id";
+        $livreurColumn = "{$table}.livreur_id";
 
         if ($user->isCommercial()) {
             $query->where($commercialColumn, $user->id);

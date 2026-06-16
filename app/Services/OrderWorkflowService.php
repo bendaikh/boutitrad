@@ -56,6 +56,9 @@ class OrderWorkflowService
             throw new InvalidArgumentException('Aucun partenaire de livraison actif. Configurez un partenaire dans Livraison > Partenaires.');
         }
 
+        $order->loadMissing('client.cityRecord');
+        $this->assertReadyForPartnerDispatch($order, $partner);
+
         return DB::transaction(function () use ($order, $user, $partner) {
             $previousStatus = $order->status;
 
@@ -226,5 +229,30 @@ class OrderWorkflowService
         }
 
         abort(403);
+    }
+
+    private function assertReadyForPartnerDispatch(Order $order, DeliveryPartner $partner): void
+    {
+        $client = $order->client;
+
+        if (! $client) {
+            throw new InvalidArgumentException('Client introuvable pour cette commande.');
+        }
+
+        if (! $partner->isCathedis()) {
+            return;
+        }
+
+        if ($client->deliveryCityName() === '') {
+            throw new InvalidArgumentException('Le client doit avoir une ville Cathedis avant envoi au partenaire.');
+        }
+
+        if (empty($client->phone)) {
+            throw new InvalidArgumentException('Le client doit avoir un numéro de téléphone pour Cathedis.');
+        }
+
+        if (empty($client->address)) {
+            throw new InvalidArgumentException('Le client doit avoir une adresse de livraison pour Cathedis.');
+        }
     }
 }

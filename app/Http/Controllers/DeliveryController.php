@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Models\DeliveryPartner;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\CathedisApiService;
 use App\Services\OrderWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,10 +17,11 @@ class DeliveryController extends Controller
 {
     public function __construct(private OrderWorkflowService $workflow) {}
 
-    public function partners(): View
+    public function partners(CathedisApiService $cathedis): View
     {
         return view('deliveries.partners', [
             'partners' => DeliveryPartner::query()->orderByDesc('is_default')->orderBy('name')->get(),
+            'cathedis' => $cathedis->connectionStatus(),
         ]);
     }
 
@@ -46,6 +48,23 @@ class DeliveryController extends Controller
         ]);
 
         return back()->with('success', 'Partenaire ajouté.');
+    }
+
+    public function syncCathedisCities(CathedisApiService $cathedis): RedirectResponse
+    {
+        $count = $cathedis->syncCities();
+
+        return back()->with('success', "Villes Cathedis synchronisées ({$count} villes disponibles).");
+    }
+
+    public function testCathedisConnection(CathedisApiService $cathedis): RedirectResponse
+    {
+        $result = $cathedis->testConnection();
+
+        return back()->with(
+            ($result['ok'] ?? false) ? 'success' : 'error',
+            $result['message'],
+        );
     }
 
     public function transport(Request $request): View

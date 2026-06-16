@@ -8,6 +8,7 @@
     id="product-form"
     method="POST"
     action="{{ $isEdit ? route('products.update', $product) : route('products.store') }}"
+    enctype="multipart/form-data"
     class="admin-form-shell"
 >
     @csrf
@@ -17,18 +18,54 @@
     <input type="hidden" name="is_active" value="1">
 
     <div class="admin-product-form-toolbar {{ $formActive ? '' : 'bg-slate-100 dark:bg-slate-800/60' }}">
-        <div class="min-w-0">
-            <h3 class="text-sm font-bold leading-tight {{ $formActive ? 'text-brand-900 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400' }}">
-                @if(! $formActive)
-                    Fiche produit
-                @elseif($isEdit)
-                    {{ $product->sku }} — {{ $product->name }}
+        <div class="flex items-center gap-3 min-w-0 flex-1">
+            <div
+                id="product-image-preview"
+                class="w-11 h-11 shrink-0 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex items-center justify-center"
+                title="Aperçu image produit"
+            >
+                @if($product?->imageUrl())
+                    <img src="{{ $product->imageUrl() }}" alt="" class="w-full h-full object-cover">
                 @else
-                    Nouveau produit
+                    <svg class="w-5 h-5 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                 @endif
-            </h3>
+            </div>
+            <div class="min-w-0">
+                <h3 class="text-sm font-bold leading-tight {{ $formActive ? 'text-brand-900 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400' }}">
+                    @if(! $formActive)
+                        Fiche produit
+                    @elseif($isEdit)
+                        {{ $product->sku }} — {{ $product->name }}
+                    @else
+                        Nouveau produit
+                    @endif
+                </h3>
+                @if($isEdit && $product->image)
+                    <label class="inline-flex items-center gap-1.5 mt-1 text-[10px] text-slate-500 dark:text-slate-400 cursor-pointer">
+                        <input type="checkbox" name="remove_image" value="1" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500" @checked(old('remove_image'))>
+                        Supprimer l'image
+                    </label>
+                @endif
+            </div>
         </div>
         <div class="flex flex-wrap items-center gap-2 notranslate shrink-0" translate="no">
+            <input
+                type="file"
+                x-ref="productImageInput"
+                id="product_image"
+                name="product_image"
+                accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                class="sr-only"
+                onchange="previewProductImage(event)"
+            >
+            <x-admin.action-btn
+                type="button"
+                icon="image"
+                label="Ajouter image"
+                variant="info"
+                x-bind:disabled="!formActive"
+                @click="$refs.productImageInput.click()"
+            />
             <x-admin.action-btn
                 icon="cancel"
                 label="Annuler"
@@ -43,6 +80,7 @@
             />
         </div>
     </div>
+    @error('product_image')<p class="px-3 py-1 text-red-500 text-[10px] bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/40">{{ $message }}</p>@enderror
 
     <div class="relative transition-opacity" :class="!formActive && 'opacity-55'">
         <div
@@ -138,3 +176,22 @@
         @include('products.partials.form-actions')
     </div>
 </form>
+
+@push('scripts')
+<script>
+    function previewProductImage(event) {
+        const file = event.target.files[0];
+        const preview = document.getElementById('product-image-preview');
+        if (!file || !preview) {
+            return;
+        }
+
+        preview.innerHTML = `<img src="${URL.createObjectURL(file)}" alt="" class="w-full h-full object-cover">`;
+
+        const removeCheckbox = document.querySelector('input[name="remove_image"]');
+        if (removeCheckbox) {
+            removeCheckbox.checked = false;
+        }
+    }
+</script>
+@endpush

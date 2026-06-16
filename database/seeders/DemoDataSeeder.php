@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Models\Brand;
 use App\Models\CashTransaction;
 use App\Models\Category;
+use App\Models\City;
 use App\Models\Client;
 use App\Models\CommercialObjective;
 use App\Models\Commission;
@@ -90,17 +91,17 @@ class DemoDataSeeder extends Seeder
         $clients = [
             Client::firstOrCreate(['email' => 'client1@email.com'], [
                 'name' => 'Karim Mansouri', 'phone' => '+212 644 444 444',
-                'address' => '123 Bd Mohammed V', 'city' => 'Casablanca', 'balance' => 0,
+                'address' => '123 Bd Mohammed V', 'city' => 'Casablanca', 'city_id' => City::findByName('Casablanca')?->id, 'balance' => 0,
                 'prospection' => 'facebook', 'payment_mode' => 'especes', 'commercial_id' => null,
             ]),
             Client::firstOrCreate(['email' => 'client2@email.com'], [
                 'name' => 'Sara Idrissi', 'phone' => '+212 655 555 555',
-                'address' => '45 Rue Allal Ben Abdellah', 'city' => 'Rabat', 'balance' => -500,
+                'address' => '45 Rue Allal Ben Abdellah', 'city' => 'Rabat', 'city_id' => City::findByName('Rabat')?->id, 'balance' => -500,
                 'prospection' => 'instagram', 'payment_mode' => 'credit', 'commercial_id' => null,
             ]),
             Client::firstOrCreate(['email' => 'client3@email.com'], [
                 'name' => 'Mohamed Tazi', 'phone' => '+212 666 666 666',
-                'address' => '78 Avenue Hassan II', 'city' => 'Marrakech', 'balance' => 200,
+                'address' => '78 Avenue Hassan II', 'city' => 'Marrakech', 'city_id' => City::findByName('Marrakech')?->id, 'balance' => 200,
                 'prospection' => 'terrain', 'payment_mode' => 'virement', 'commercial_id' => null,
             ]),
         ];

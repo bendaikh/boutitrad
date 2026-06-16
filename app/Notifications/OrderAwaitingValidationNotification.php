@@ -33,7 +33,7 @@ class OrderAwaitingValidationNotification extends Notification
             'commercial_name' => $this->order->commercial?->name,
             'client_name' => $this->order->client?->name,
             'total' => (float) $this->order->total,
-            'url' => route('orders.show', $this->order),
+            'url' => route('orders.bon', $this->order),
         ];
     }
 }

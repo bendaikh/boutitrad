@@ -12,7 +12,7 @@ class Order extends Model
 {
     protected $fillable = [
         'reference', 'client_id', 'commercial_id', 'livreur_id', 'delivery_partner_id', 'partner_tracking_ref', 'status',
-        'subtotal', 'discount', 'delivery_cost', 'tax', 'total', 'amount_paid', 'payment_mode', 'notes', 'internal_notes',
+        'subtotal', 'discount', 'delivery_cost', 'tax', 'total', 'amount_paid', 'payment_mode', 'notes', 'internal_notes', 'shipping_remark',
         'validated_at', 'delivered_at', 'cancelled_at', 'submitted_to_admin_at', 'sent_to_partner_at', 'created_by',
     ];
 
@@ -141,6 +141,71 @@ class Order extends Model
         return $this->status === OrderStatus::EnCours;
     }
 
+    public function hasBeenValidatedByAdmin(): bool
+    {
+        if ($this->validated_at !== null) {
+            return true;
+        }
+
+        return in_array($this->status, [
+            OrderStatus::Confirmee,
+            OrderStatus::EnPreparation,
+            OrderStatus::Expediee,
+            OrderStatus::Livree,
+            OrderStatus::Retournee,
+        ], true);
+    }
+
+    public function canEditShippingRemark(?User $user = null): bool
+    {
+        return $this->canManageBonContent($user);
+    }
+
+    public function canManageBonContent(?User $user = null): bool
+    {
+        $user ??= auth()->user();
+
+        if (! $user || $this->status === OrderStatus::Annulee) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin() || $user->isGestionnaireStock()) {
+            return true;
+        }
+
+        if (! $user->isCommercial()) {
+            return false;
+        }
+
+        return $this->commercial_id === $user->id
+            || $this->created_by === $user->id;
+    }
+
+    public function canUploadProductImage(?User $user = null): bool
+    {
+        return $this->canManageBonContent($user);
+    }
+
+    public function canViewBon(?User $user = null): bool
+    {
+        $user ??= auth()->user();
+
+        if (! $user || $this->status === OrderStatus::Annulee) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin() || $user->isGestionnaireStock()) {
+            return true;
+        }
+
+        if (! $user->isCommercial()) {
+            return false;
+        }
+
+        return $this->commercial_id === $user->id
+            || $this->created_by === $user->id;
+    }
+
     public function isWithPartner(): bool
     {
         return in_array($this->status, [
@@ -157,5 +222,41 @@ class Order extends Model
             OrderStatus::EnPreparation,
             OrderStatus::Confirmee,
         ], true);
+    }
+
+    public function canBeModifiedBy(?User $user = null): bool
+    {
+        $user ??= auth()->user();
+
+        if (! $user || ! $this->isAwaitingAdminValidation()) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($user->isCommercial() && $this->commercial_id === $user->id) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function canBeEditedInForm(?User $user = null): bool
+    {
+        $user ??= auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($this->canBeModifiedBy($user)) {
+            return true;
+        }
+
+        return $user->isCommercial()
+            && $this->commercial_id === $user->id
+            && $this->isEditableByCommercial();
     }
 }

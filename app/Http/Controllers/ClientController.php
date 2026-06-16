@@ -6,6 +6,7 @@ use App\Enums\PaymentMode;
 use App\Enums\ProspectionSource;
 use App\Enums\UserRole;
 use App\Enums\OrderStatus;
+use App\Models\City;
 use App\Models\Client;
 use App\Models\Order;
 use App\Models\User;
@@ -50,6 +51,7 @@ class ClientController extends Controller
             'commercials' => $this->commercials(),
             'prospectionSources' => ProspectionSource::cases(),
             'paymentModes' => PaymentMode::cases(),
+            'cities' => $this->cities(),
         ]);
     }
 
@@ -62,6 +64,7 @@ class ClientController extends Controller
     {
         $validated = $this->validateClient($request);
         unset($validated['remove_photo'], $validated['photo']);
+        $validated = $this->resolveCityFields($validated);
         $validated['is_active'] = $request->boolean('is_active', true);
 
         if ($request->hasFile('photo')) {
@@ -96,6 +99,7 @@ class ClientController extends Controller
     {
         $validated = $this->validateClient($request);
         unset($validated['remove_photo'], $validated['photo']);
+        $validated = $this->resolveCityFields($validated);
         $validated['is_active'] = $request->boolean('is_active', true);
         $validated['photo'] = $this->resolveClientPhoto($request, $client);
 
@@ -195,7 +199,37 @@ class ClientController extends Controller
             'commercials' => $this->commercials(),
             'prospectionSources' => ProspectionSource::cases(),
             'paymentModes' => PaymentMode::cases(),
+            'cities' => $this->cities(),
         ];
+    }
+
+    private function cities()
+    {
+        return City::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function resolveCityFields(array $validated): array
+    {
+        if (! empty($validated['city_id'])) {
+            $city = City::find($validated['city_id']);
+            $validated['city'] = $city?->name;
+        } elseif (! empty($validated['city'])) {
+            $matched = City::findByName($validated['city']);
+            $validated['city_id'] = $matched?->id;
+        } else {
+            $validated['city'] = null;
+            $validated['city_id'] = null;
+        }
+
+        return $validated;
     }
 
     private function commercials()
@@ -218,6 +252,7 @@ class ClientController extends Controller
             'photo' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
             'remove_photo' => 'sometimes|boolean',
             'address' => 'nullable|string|max:500',
+            'city_id' => 'nullable|exists:cities,id',
             'city' => 'nullable|string|max:100',
             'prospection' => ['nullable', Rule::enum(ProspectionSource::class)],
             'payment_mode' => ['nullable', Rule::enum(PaymentMode::class)],

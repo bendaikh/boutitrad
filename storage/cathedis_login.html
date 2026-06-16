@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="google" content="notranslate">
+  <link rel="shortcut icon" href="ico/favicon.ico">
+  <link href="css/application.styles.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
+</head>
+<body>
+
+<div class="content">
+  <div class="row">
+    <div class="column left">
+      <img src="img/home.png" class="img-desktop img-responsive">
+      <img src="img/home-mobile.png" class="img-mobile img-responsive">
+    </div>
+    <div class="column right">
+      <div class="container">
+        <img src="img/logo.png" class="responsive-logo">
+        <form id="login-form-2" class="form" action="https://api.cathedis.delivery/callback" method="POST">
+
+            <div class="message-container">
+              </div>
+            <div class="login-box">
+            <div class="user-box">
+              <input id="usernameId" type="text" placeholder="Nom de l'utilisateur" name="username" required="" tabindex="1" autofocus>
+            </div>
+            <div class="user-box">
+              <input type="password" name="password" placeholder="Mots de passe" required="" id="passwordId" tabindex="2" autofocus>
+              <i class="far fa-eye" id="togglePassword"></i>
+              </div>
+            <div class="remember-container">
+              <div id="remembreme-box" class="checkbox remembreme-box">
+                <input type="checkbox" value="rememberMe" name="rememberMe" id="checkbox1" onclick="remembreMe()" />
+                <label for="checkbox1" class="input-label">Se souvenir de moi</label>
+              </div>
+</div>
+            <input type="hidden" name="hash_location" id="hash-location">
+            <button class="button" role="button" type="submit">SE CONNECTER</button>
+          </div>
+
+        </form>
+
+      </div>
+      <div class="copyrights">
+        <p>&copy; 2017 - 2026 Cathedis. All Rights Reserved.</p>
+      </div>
+    </div>
+  </div>
+  <div id="br-warning" class="alert alert-block alert-error hidden">
+    <h4>Update your browser!</h4>
+    <ul>
+      <li>Chrome</li>
+      <li>Firefox</li>
+      <li>Safari</li>
+      <li>IE >= 11</li>
+    </ul>
+  </div>
+  <div id="ad-warning" class="alert hidden">
+    <h4>Adblocker detected!</h4>
+    Please disable the adblocker as it may slow down the application.</div>
+</div>
+
+<div id="adblock"></div>
+
+<script type="text/javascript">
+
+  const togglePassword = document.querySelector("#togglePassword");
+  const password = document.querySelector("#passwordId");
+
+  togglePassword.addEventListener("click", function () {
+    const type = password.getAttribute("type") === "password" ? "text" : "password";
+    password.setAttribute("type", type);
+    this.classList.toggle("bi-eye");
+  });
+  $(function () {
+    if (axelor.browser.msie && !axelor.browser.rv) {
+      $('#br-warning').removeClass('hidden');
+    }
+    if ($('#adblock') === undefined || $('#adblock').is(':hidden')) {
+      $('#ad-warning').removeClass('hidden');
+    }
+
+    $("#social-buttons").on('click', 'button', function (e) {
+      var client = $(e.currentTarget).data('provider');
+      window.location.href = './?client_name=' + client
+              + "&hash_location=" + encodeURIComponent(window.location.hash);
+    });
+
+    $('#login-form').submit(function (e) {
+      document.getElementById("hash-location").value = window.location.hash;
+    });
+  });
+  function remembreMe() {
+    var className = $("#remembreme-box").attr("class");
+    if (className.includes('checked')) {
+      $("#remembreme-box").removeClass("checked");
+    } else {
+      $("#remembreme-box").addClass("checked")
+    }
+  }
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
         <div class="shrink-0">{{ $toolbar }}</div>
     @endisset
 
-    <div class="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+    <div class="flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto">
         {{ $slot }}
     </div>
 

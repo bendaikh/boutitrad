@@ -13,12 +13,14 @@ use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\Setting;
 use App\Models\User;
+use App\Support\ImageUpload;
 use App\Services\CommissionService;
 use App\Services\OrderListService;
 use App\Services\OrderWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -43,16 +45,46 @@ class OrderController extends Controller
 
     public function create(): View
     {
-        $user = auth()->user();
-        $clients = Client::where('is_active', true)->orderBy('name')->get();
+        return view('orders.create', $this->orderFormViewData());
+    }
 
-        return view('orders.create', [
+    public function edit(Order $order): View
+    {
+        $this->authorizeOrder($order);
+        abort_unless($order->canBeEditedInForm(), 403, 'Cette commande ne peut plus être modifiée.');
+
+        return view('orders.create', $this->orderFormViewData($order));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function orderFormViewData(?Order $order = null): array
+    {
+        $user = auth()->user();
+        $clients = Client::where('is_active', true)->with('cityRecord')->orderBy('name')->get();
+
+        $initialItems = old('items');
+
+        if ($initialItems === null && $order) {
+            $order->loadMissing('items.product');
+            $initialItems = $order->items->map(fn (OrderItem $item) => [
+                'product_id' => $item->product_id,
+                'quantity' => $item->quantity,
+                'unit_price' => (float) $item->unit_price,
+            ])->values()->all();
+        }
+
+        return [
+            'order' => $order,
             'clients' => $clients,
             'clientsData' => $clients->map(fn (Client $client) => [
                 'id' => $client->id,
                 'formattedId' => $client->formattedId(),
                 'name' => $client->name,
-                'city' => $client->city ?? '',
+                'city' => $client->deliveryCityName(),
+                'city_id' => $client->city_id,
+                'delivery_cost' => $client->suggestedDeliveryCost(),
                 'commercial_id' => $client->commercial_id,
                 'payment_mode' => $client->payment_mode?->value,
             ])->values(),
@@ -67,10 +99,11 @@ class OrderController extends Controller
             'commercials' => User::where('role', UserRole::Commercial)->where('is_active', true)->get(),
             'livreurs' => User::where('role', UserRole::Livreur)->where('is_active', true)->get(),
             'paymentModes' => PaymentMode::cases(),
-            'previewReference' => Order::generateReference(),
+            'previewReference' => $order?->reference ?? Order::generateReference(),
             'defaultDeliveryCost' => (float) Setting::get('delivery_fee', 0),
             'isCommercial' => $user->isCommercial(),
-        ]);
+            'initialItems' => $initialItems ?? [],
+        ];
     }
 
     public function store(Request $request): RedirectResponse
@@ -169,35 +202,126 @@ class OrderController extends Controller
                 $this->workflow->submitToAdmin($order->fresh(), $user);
             } catch (\InvalidArgumentException $e) {
                 return redirect()
-                    ->route('orders.show', $order)
+                    ->route('orders.bon', $order)
                     ->with('success', 'Commande créée.')
                     ->withErrors(['workflow' => $e->getMessage()]);
             }
 
             return redirect()
-                ->route('orders.show', $order)
+                ->route('orders.bon', $order)
                 ->with('success', 'Commande créée et envoyée à l\'admin pour validation.');
         }
 
         return redirect()
-            ->route('orders.show', $order)
+            ->route('orders.bon', $order)
             ->with('success', $user->isCommercial()
                 ? 'Commande enregistrée. Cliquez sur « Envoyer à l\'admin » pour la soumettre.'
                 : 'Commande créée.');
     }
 
-    public function show(Order $order): View
+    public function update(Request $request, Order $order): RedirectResponse
     {
         $this->authorizeOrder($order);
-        $order->load(['client', 'commercial', 'livreur', 'deliveryPartner', 'items.product', 'statusHistories.user']);
+        abort_unless($order->canBeEditedInForm(), 403, 'Cette commande ne peut plus être modifiée.');
 
-        return view('orders.show', [
-            'order' => $order,
-            'statuses' => $this->workflow->allowedStatusesFor(auth()->user(), $order),
-            'partners' => DeliveryPartner::query()->where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(),
-            'commercials' => User::where('role', UserRole::Commercial)->where('is_active', true)->get(),
-            'livreurs' => User::where('role', UserRole::Livreur)->where('is_active', true)->get(),
+        $validated = $request->validate([
+            'client_id' => 'required|exists:clients,id',
+            'order_date' => 'nullable|date',
+            'commercial_id' => 'nullable|exists:users,id',
+            'livreur_id' => 'nullable|exists:users,id',
+            'payment_mode' => ['nullable', Rule::enum(PaymentMode::class)],
+            'notes' => 'nullable|string',
+            'internal_notes' => 'nullable|string',
+            'discount' => 'nullable|numeric|min:0',
+            'delivery_cost' => 'nullable|numeric|min:0',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.unit_price' => 'required|numeric|min:0',
         ]);
+
+        $user = auth()->user();
+
+        if ($user->isCommercial()) {
+            $validated['commercial_id'] = $user->id;
+            $validated['livreur_id'] = null;
+        }
+
+        DB::transaction(function () use ($validated, $order, $user) {
+            $subtotal = 0;
+            $items = [];
+
+            foreach ($validated['items'] as $item) {
+                $product = Product::findOrFail($item['product_id']);
+                $unitPrice = (float) $item['unit_price'];
+                $lineTotal = $unitPrice * $item['quantity'];
+                $subtotal += $lineTotal;
+                $items[] = [
+                    'product' => $product,
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $unitPrice,
+                    'total' => $lineTotal,
+                ];
+            }
+
+            $discount = $validated['discount'] ?? 0;
+            $deliveryCost = $validated['delivery_cost'] ?? 0;
+            $total = max(0, $subtotal + $deliveryCost - $discount);
+
+            $order->update([
+                'client_id' => $validated['client_id'],
+                'commercial_id' => $validated['commercial_id'] ?? $order->commercial_id,
+                'livreur_id' => $validated['livreur_id'] ?? null,
+                'subtotal' => $subtotal,
+                'discount' => $discount,
+                'delivery_cost' => $deliveryCost,
+                'total' => $total,
+                'payment_mode' => $validated['payment_mode'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'internal_notes' => $validated['internal_notes'] ?? null,
+            ]);
+
+            $order->items()->delete();
+
+            foreach ($items as $item) {
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $item['product']->id,
+                    'product_name' => $item['product']->name,
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'total' => $item['total'],
+                ]);
+            }
+
+            if (! empty($validated['order_date'])) {
+                $order->created_at = $validated['order_date'];
+                $order->save();
+            }
+        });
+
+        return redirect()
+            ->route('orders.bon', $order)
+            ->with('success', 'Commande mise à jour.');
+    }
+
+    public function destroy(Order $order): RedirectResponse
+    {
+        $this->authorizeOrder($order);
+        abort_unless($order->canBeModifiedBy(), 403, 'Cette commande ne peut pas être supprimée.');
+
+        $order->delete();
+
+        return redirect()
+            ->route('orders.index')
+            ->with('success', 'Commande supprimée.');
+    }
+
+    public function show(Order $order): RedirectResponse
+    {
+        $this->authorizeOrder($order);
+
+        return redirect()->route('orders.bon', $order);
     }
 
     public function submitToAdmin(Order $order): RedirectResponse
@@ -310,16 +434,99 @@ class OrderController extends Controller
         return view('orders.invoice', compact('order'));
     }
 
+    public function bon(Order $order): View
+    {
+        $this->authorizeOrder($order);
+        abort_unless($order->canViewBon(), 403);
+
+        $order->load([
+            'client.cityRecord',
+            'commercial',
+            'livreur',
+            'deliveryPartner',
+            'items.product',
+            'statusHistories.user',
+        ]);
+
+        return view('orders.bon', [
+            'order' => $order,
+            'partners' => DeliveryPartner::query()->where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(),
+            'statuses' => $this->workflow->allowedStatusesFor(auth()->user(), $order),
+        ]);
+    }
+
+    public function deliveryNote(Order $order): View
+    {
+        $this->authorizeOrder($order);
+        abort_unless($order->canViewBon(), 403);
+
+        $order->load([
+            'client.cityRecord',
+            'commercial',
+            'livreur',
+            'deliveryPartner',
+            'items.product',
+        ]);
+
+        return view('orders.delivery-note', compact('order'));
+    }
+
+    public function uploadItemProductImage(Request $request, Order $order, OrderItem $item): RedirectResponse
+    {
+        $this->authorizeOrder($order);
+        abort_unless($order->canUploadProductImage(), 403);
+        abort_unless($item->order_id === $order->id, 404);
+        abort_unless($item->product_id, 422, 'Ce produit ne peut pas recevoir d\'image.');
+
+        ImageUpload::assertValidUpload($request, 'product_image');
+        $request->validate(['product_image' => ImageUpload::RULE]);
+
+        $product = Product::findOrFail($item->product_id);
+
+        if ($product->image) {
+            Storage::disk('public')->delete($product->image);
+        }
+
+        $product->update([
+            'image' => ImageUpload::storeFromRequest($request, 'product_image', 'product-images'),
+        ]);
+
+        $redirectRoute = $request->input('return_to') === 'print'
+            ? route('orders.delivery-note', $order)
+            : route('orders.bon', $order);
+
+        return redirect($redirectRoute)
+            ->with('success', 'Image produit enregistrée pour « '.$product->name.' ».');
+    }
+
+    public function updateShippingRemark(Request $request, Order $order): RedirectResponse
+    {
+        $this->authorizeOrder($order);
+        abort_unless($order->canEditShippingRemark(), 403);
+
+        $validated = $request->validate([
+            'shipping_remark' => 'nullable|string|max:2000',
+        ]);
+
+        $order->update($validated);
+
+        return back()->with('success', 'Remarque NB enregistrée.');
+    }
+
     private function authorizeOrder(Order $order): void
     {
         $user = auth()->user();
 
-        if ($user->isSuperAdmin()) {
+        if ($user->isSuperAdmin() || $user->isGestionnaireStock()) {
             return;
         }
 
-        if ($user->isCommercial() && $order->commercial_id !== $user->id) {
-            abort(403);
+        if ($user->isCommercial()) {
+            if ($order->commercial_id !== $user->id && $order->created_by !== $user->id) {
+                abort(403);
+            }
+
+            return;
         }
 
         if ($user->isLivreur() && $order->livreur_id !== $user->id) {

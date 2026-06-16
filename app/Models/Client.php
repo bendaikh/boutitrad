@@ -13,7 +13,7 @@ class Client extends Model
 {
     protected $fillable = [
         'name', 'email', 'phone', 'facebook_page', 'instagram_page', 'photo',
-        'address', 'city', 'prospection', 'payment_mode',
+        'address', 'city', 'city_id', 'prospection', 'payment_mode',
         'commercial_id', 'balance', 'notes', 'is_active',
     ];
 
@@ -32,6 +32,11 @@ class Client extends Model
         return $this->belongsTo(User::class, 'commercial_id');
     }
 
+    public function cityRecord(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'city_id');
+    }
+
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
@@ -45,6 +50,24 @@ class Client extends Model
     public function photoUrl(): ?string
     {
         return $this->photo ? '/storage/'.$this->photo : null;
+    }
+
+    public function deliveryCityName(): string
+    {
+        return $this->cityRecord?->name ?? $this->city ?? '';
+    }
+
+    public function suggestedDeliveryCost(): float
+    {
+        $pack = config('cathedis_cities.default_pack', 'silver');
+
+        if ($this->cityRecord) {
+            return $this->cityRecord->deliveryCost($pack);
+        }
+
+        $matched = City::findByName($this->city);
+
+        return $matched?->deliveryCost($pack) ?? 0.0;
     }
 
     public function totalPurchases(): float

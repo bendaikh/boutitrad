@@ -89,8 +89,14 @@
                 </div>
 
                 <div>
-                    <label for="city" class="block text-[11px] font-medium text-slate-600 mb-0.5">Ville</label>
-                    <input type="text" id="city" name="city" value="{{ old('city', $client->city ?? '') }}" class="{{ $inputClass }}">
+                    <label for="city_id" class="block text-[11px] font-medium text-slate-600 mb-0.5">Ville livraison</label>
+                    <select id="city_id" name="city_id" class="{{ $inputClass }}">
+                        <option value="">— Sélectionner —</option>
+                        @foreach($cities ?? [] as $cityOption)
+                            <option value="{{ $cityOption->id }}" @selected(old('city_id', $client->city_id ?? '') == $cityOption->id)>{{ $cityOption->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('city_id')<p class="text-red-500 text-[11px]">{{ $message }}</p>@enderror
                 </div>
 
                 <div>
@@ -213,8 +219,14 @@
                 </div>
 
                 <div>
-                    <label for="city" class="block text-xs font-medium text-slate-600 mb-1">Ville</label>
-                    <input type="text" id="city" name="city" value="{{ old('city', $client->city ?? '') }}" class="{{ $inputClass }}">
+                    <label for="city_id" class="block text-xs font-medium text-slate-600 mb-1">Ville livraison (Cathedis)</label>
+                    <select id="city_id" name="city_id" class="{{ $inputClass }}">
+                        <option value="">— Sélectionner une ville —</option>
+                        @foreach($cities ?? [] as $cityOption)
+                            <option value="{{ $cityOption->id }}" @selected(old('city_id', $client->city_id ?? '') == $cityOption->id)>{{ $cityOption->name }} ({{ $cityOption->zone->label() }})</option>
+                        @endforeach
+                    </select>
+                    @error('city_id')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                 </div>
 
                 <div>

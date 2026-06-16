@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
+use App\Support\ImageUpload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class ProductController extends Controller
@@ -41,6 +43,8 @@ class ProductController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        ImageUpload::assertValidUpload($request, 'product_image');
+
         $request->merge([
             'category_id' => $request->input('category_id') ?: null,
             'brand_id' => $request->input('brand_id') ?: null,
@@ -55,6 +59,7 @@ class ProductController extends Controller
             'supplier' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
             'description' => 'nullable|string',
+            'product_image' => ImageUpload::RULE,
             'purchase_price' => 'required|numeric|min:0',
             'sale_price' => 'required|numeric|min:0',
             'quantity' => 'required|integer|min:0',
@@ -66,6 +71,12 @@ class ProductController extends Controller
         $validated['min_quantity'] = $validated['min_quantity'] ?? 5;
         $validated['unit'] = $validated['unit'] ?? 'unité';
         $validated['is_active'] = $request->boolean('is_active', true);
+
+        if ($path = ImageUpload::storeFromRequest($request, 'product_image', 'product-images')) {
+            $validated['image'] = $path;
+        }
+
+        unset($validated['product_image']);
 
         Product::create($validated);
 
@@ -93,6 +104,8 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product): RedirectResponse
     {
+        ImageUpload::assertValidUpload($request, 'product_image');
+
         $request->merge([
             'category_id' => $request->input('category_id') ?: null,
             'brand_id' => $request->input('brand_id') ?: null,
@@ -107,6 +120,8 @@ class ProductController extends Controller
             'supplier' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
             'description' => 'nullable|string',
+            'product_image' => ImageUpload::RULE,
+            'remove_image' => 'nullable|boolean',
             'purchase_price' => 'required|numeric|min:0',
             'sale_price' => 'required|numeric|min:0',
             'quantity' => 'required|integer|min:0',
@@ -119,6 +134,20 @@ class ProductController extends Controller
         $validated['unit'] = $validated['unit'] ?? $product->unit;
         $validated['is_active'] = $request->boolean('is_active', true);
 
+        if ($request->boolean('remove_image') && $product->image) {
+            Storage::disk('public')->delete($product->image);
+            $validated['image'] = null;
+        }
+
+        if ($request->hasFile('product_image')) {
+            if ($product->image) {
+                Storage::disk('public')->delete($product->image);
+            }
+            $validated['image'] = ImageUpload::storeFromRequest($request, 'product_image', 'product-images');
+        }
+
+        unset($validated['product_image'], $validated['remove_image']);
+
         $product->update($validated);
 
         return redirect()->route('products.index')->with('success', 'Produit mis à jour.');
@@ -126,6 +155,10 @@ class ProductController extends Controller
 
     public function destroy(Product $product): JsonResponse|RedirectResponse
     {
+        if ($product->image) {
+            Storage::disk('public')->delete($product->image);
+        }
+
         $product->delete();
 
         if (request()->wantsJson()) {

@@ -4,33 +4,44 @@ namespace App\Services;
 
 use App\Models\DeliveryPartner;
 use App\Models\Order;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class CathedisDispatchService
 {
+    public function __construct(private CathedisSessionService $session) {}
+
     public function dispatch(Order $order, DeliveryPartner $partner): ?string
     {
         if (! $partner->isCathedis()) {
             return $this->localTrackingRef($order, $partner);
         }
 
-        $apiUrl = $partner->api_url ?: config('cathedis.api_url');
-        $apiToken = $partner->api_token ?: config('cathedis.api_token');
+        $apiUrl = rtrim($partner->api_url ?: (string) config('cathedis.api_url'), '/');
 
-        if (! config('cathedis.enabled') || ! $apiToken) {
+        if (! config('cathedis.enabled') || ! $this->session->isConfigured()) {
             return $this->localTrackingRef($order, $partner);
+        }
+
+        if ($this->session->credentialsConfigured()) {
+            $this->session->authenticate($apiUrl);
         }
 
         try {
             $client = $order->client;
+            $cityName = $client->deliveryCityName();
+            $cityCode = $client->cityRecord?->cathedis_code;
+
             $payload = [
                 'reference' => $order->reference,
                 'recipient_name' => $client->name,
                 'recipient_phone' => $client->phone,
                 'recipient_address' => $client->address,
-                'recipient_city' => $client->city,
+                'recipient_city' => $cityName,
+                'city' => $cityName,
+                'city_code' => $cityCode,
+                'city_id' => $cityCode,
+                'pickup_city' => config('cathedis.pickup_city'),
                 'cod_amount' => (float) $order->balanceDue(),
                 'order_amount' => (float) $order->total,
                 'notes' => $order->notes,
@@ -41,9 +52,7 @@ class CathedisDispatchService
                 ])->values()->all(),
             ];
 
-            $response = Http::withToken($apiToken)
-                ->timeout(20)
-                ->post(rtrim($apiUrl, '/').'/parcels', $payload);
+            $response = $this->session->http($apiUrl)->post('/parcels', $payload);
 
             if ($response->successful()) {
                 return $response->json('tracking_number')

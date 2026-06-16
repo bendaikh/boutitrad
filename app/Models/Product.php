@@ -5,11 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
     protected $fillable = [
-        'category_id', 'brand_id', 'name', 'sku', 'barcode', 'supplier', 'city', 'description',
+        'category_id', 'brand_id', 'name', 'sku', 'barcode', 'supplier', 'city', 'description', 'image',
         'purchase_price', 'sale_price', 'quantity', 'min_quantity', 'unit', 'is_active',
     ];
 
@@ -72,5 +73,10 @@ class Product extends Model
     public function stockValue(): float
     {
         return (float) ($this->quantity * $this->purchase_price);
+    }
+
+    public function imageUrl(): ?string
+    {
+        return $this->image ? Storage::disk('public')->url($this->image) : null;
     }
 }

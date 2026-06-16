@@ -33,12 +33,16 @@ Route::middleware(['auth'])->group(function () {
         Route::get('clients/{client}/balance-export/excel', [ClientController::class, 'balanceExportExcel'])->name('clients.balance.export.excel');
         Route::get('clients/{client}/print', [ClientController::class, 'print'])->name('clients.print');
         Route::resource('clients', ClientController::class);
-        Route::resource('orders', OrderController::class)->except(['edit', 'update', 'destroy']);
+        Route::resource('orders', OrderController::class);
         Route::patch('orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.status');
         Route::post('orders/{order}/submit', [OrderController::class, 'submitToAdmin'])->name('orders.submit');
         Route::post('orders/{order}/dispatch', [OrderController::class, 'validateAndDispatch'])->name('orders.dispatch');
         Route::post('orders/{order}/reject', [OrderController::class, 'rejectOrder'])->name('orders.reject');
+        Route::get('orders/{order}/bon', [OrderController::class, 'bon'])->name('orders.bon');
         Route::get('orders/{order}/invoice', [OrderController::class, 'invoice'])->name('orders.invoice');
+        Route::get('orders/{order}/bon/print', [OrderController::class, 'deliveryNote'])->name('orders.delivery-note');
+        Route::patch('orders/{order}/shipping-remark', [OrderController::class, 'updateShippingRemark'])->name('orders.shipping-remark');
+        Route::post('orders/{order}/items/{item}/product-image', [OrderController::class, 'uploadItemProductImage'])->name('orders.items.product-image');
         Route::get('sales/balance', [SalesController::class, 'balance'])->name('sales.balance');
         Route::get('sales/balance/print', [SalesController::class, 'balancePrint'])->name('sales.balance.print');
         Route::get('sales/balance/export/pdf', [SalesController::class, 'balanceExportPdf'])->name('sales.balance.export.pdf');
@@ -77,6 +81,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware('role:superadmin')->group(function () {
         Route::post('deliveries/partners', [DeliveryController::class, 'storePartner'])->name('deliveries.partners.store');
+        Route::post('deliveries/cathedis/sync-cities', [DeliveryController::class, 'syncCathedisCities'])->name('deliveries.cathedis.sync-cities');
+        Route::post('deliveries/cathedis/test', [DeliveryController::class, 'testCathedisConnection'])->name('deliveries.cathedis.test');
     });
 
     Route::middleware('role:superadmin,commercial')->group(function () {
