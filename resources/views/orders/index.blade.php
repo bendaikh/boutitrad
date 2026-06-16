@@ -99,14 +99,12 @@
                             </div>
                             <div>
                                 <label for="filter-ville" class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Ville livraison</label>
-                                <input
-                                    type="text"
-                                    id="filter-ville"
-                                    name="ville"
-                                    value="{{ request('ville') }}"
-                                    placeholder="Ville..."
-                                    class="form-input w-full text-sm py-1.5"
-                                >
+                                <select id="filter-ville" name="ville" class="form-input w-full text-sm py-1.5">
+                                    <option value="">Toutes</option>
+                                    @foreach($cities as $cityOption)
+                                        <option value="{{ $cityOption->id }}" @selected((string) request('ville') === (string) $cityOption->id)>{{ $cityOption->name }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                             <div>
                                 <label for="filter-status" class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Statut</label>

@@ -62,25 +62,25 @@ class DemoDataSeeder extends Seeder
         $brandGeneric = Brand::firstOrCreate(['name' => 'Generic']);
 
         $products = [
-            Product::firstOrCreate(['sku' => 'SAM-S24-001'], [
+            Product::firstOrCreate(['sku' => 'PR00001'], [
                 'category_id' => $catElectronique->id, 'brand_id' => $brandSamsung->id,
                 'name' => 'Samsung Galaxy S24', 'barcode' => '8806095123456', 'supplier' => 'Samsung Maroc', 'city' => 'Casablanca',
                 'purchase_price' => 6500, 'sale_price' => 7999,
                 'quantity' => 25, 'min_quantity' => 5, 'unit' => 'unité',
             ]),
-            Product::firstOrCreate(['sku' => 'NIK-AIR-001'], [
+            Product::firstOrCreate(['sku' => 'PR00002'], [
                 'category_id' => $catMode->id, 'brand_id' => $brandNike->id,
                 'name' => 'Nike Air Max', 'supplier' => 'Nike Distribution', 'city' => 'Rabat',
                 'purchase_price' => 800, 'sale_price' => 1299,
                 'quantity' => 50, 'min_quantity' => 10, 'unit' => 'paire',
             ]),
-            Product::firstOrCreate(['sku' => 'GEN-LMP-001'], [
+            Product::firstOrCreate(['sku' => 'PR00003'], [
                 'category_id' => $catMaison->id, 'brand_id' => $brandGeneric->id,
                 'name' => 'Lampe LED Design', 'supplier' => 'Lumitech', 'city' => 'Marrakech',
                 'purchase_price' => 120, 'sale_price' => 249,
                 'quantity' => 3, 'min_quantity' => 5, 'unit' => 'unité',
             ]),
-            Product::firstOrCreate(['sku' => 'SAM-BUDS-001'], [
+            Product::firstOrCreate(['sku' => 'PR00004'], [
                 'category_id' => $catElectronique->id, 'brand_id' => $brandSamsung->id,
                 'name' => 'Samsung Galaxy Buds', 'supplier' => 'Samsung Maroc', 'city' => 'Casablanca',
                 'purchase_price' => 900, 'sale_price' => 1399,

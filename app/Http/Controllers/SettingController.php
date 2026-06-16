@@ -6,8 +6,11 @@ use App\Enums\UserRole;
 use App\Models\Category;
 use App\Models\Setting;
 use App\Models\User;
+use App\Support\PermissionCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 class SettingController extends Controller
@@ -56,6 +59,109 @@ class SettingController extends Controller
         return view('settings.permissions', [
             'roles' => UserRole::cases(),
             'users' => User::orderBy('name')->get(),
+            'permissionGroups' => config('permissions.groups', []),
+            'permissionKeys' => PermissionCatalog::keys(),
         ]);
+    }
+
+    public function storePermissionUser(Request $request): RedirectResponse
+    {
+        $validated = $this->validatePermissionUser($request, null);
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => $validated['password'],
+            'role' => $validated['role'],
+            'permissions' => PermissionCatalog::sanitize($validated['permissions'] ?? []),
+            'is_active' => $request->boolean('is_active', true),
+            'email_verified_at' => now(),
+        ]);
+
+        return redirect()
+            ->route('settings.permissions')
+            ->with('success', "Utilisateur « {$user->name} » créé avec ses autorisations.");
+    }
+
+    public function updatePermissionUser(Request $request, User $user): RedirectResponse
+    {
+        $validated = $this->validatePermissionUser($request, $user);
+
+        $payload = [
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'role' => $validated['role'],
+            'permissions' => PermissionCatalog::sanitize($validated['permissions'] ?? []),
+            'is_active' => $request->boolean('is_active', true),
+        ];
+
+        if (! empty($validated['password'])) {
+            $payload['password'] = $validated['password'];
+        }
+
+        $user->update($payload);
+
+        return redirect()
+            ->route('settings.permissions')
+            ->with('success', "Autorisations de « {$user->name} » enregistrées.");
+    }
+
+    public function destroyPermissionUser(User $user): RedirectResponse
+    {
+        if ($user->isSuperAdmin() && User::where('role', UserRole::SuperAdmin)->count() <= 1) {
+            return back()->with('error', 'Impossible de supprimer le dernier super admin.');
+        }
+
+        $name = $user->name;
+        $user->delete();
+
+        return redirect()
+            ->route('settings.permissions')
+            ->with('success', "Utilisateur « {$name} » supprimé.");
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validatePermissionUser(Request $request, ?User $user): array
+    {
+        if ($request->input('password') === '') {
+            $request->merge(['password' => null]);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($user?->id),
+            ],
+            'password' => [$user ? 'nullable' : 'required', 'string', Password::min(8)],
+            'role' => ['required', Rule::enum(UserRole::class)],
+            'permissions' => 'nullable|array',
+            'permissions.*' => ['string', Rule::in(PermissionCatalog::keys())],
+            'is_active' => 'nullable|boolean',
+        ], [
+            'name.required' => 'Le nom utilisateur est obligatoire.',
+            'email.required' => 'Le login (email) est obligatoire.',
+            'email.email' => 'Le login doit être une adresse email valide.',
+            'email.unique' => 'Cet email est déjà utilisé par un autre compte.',
+            'password.required' => 'Le mot de passe est obligatoire pour un nouvel utilisateur.',
+            'password.min' => 'Le mot de passe doit contenir au moins :min caractères.',
+            'role.required' => 'Le profil est obligatoire.',
+        ]);
+
+        if ($user?->isSuperAdmin()) {
+            $newRole = $validated['role'] instanceof UserRole
+                ? $validated['role']->value
+                : (string) $validated['role'];
+
+            if ($newRole !== UserRole::SuperAdmin->value && User::where('role', UserRole::SuperAdmin)->count() <= 1) {
+                abort(422, 'Impossible de retirer le rôle super admin au dernier compte administrateur.');
+            }
+        }
+
+        return $validated;
     }
 }

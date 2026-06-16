@@ -14,8 +14,9 @@ class SyncCathedisCitiesCommand extends Command
     public function handle(CathedisApiService $api): int
     {
         $count = $api->syncCities();
+        $source = $count > 32 ? 'API Cathedis' : 'liste locale (API indisponible)';
 
-        $this->info("Villes Cathedis disponibles : {$count}");
+        $this->info("Villes synchronisées : {$count} ({$source})");
 
         return self::SUCCESS;
     }

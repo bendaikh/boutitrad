@@ -33,6 +33,7 @@ class ProductController extends Controller
             'brands' => Brand::where('is_active', true)->orderBy('name')->get(),
             'editingProduct' => $editingProduct,
             'formActive' => $formActive,
+            'previewSku' => Product::generateSku(),
         ]);
     }
 
@@ -54,7 +55,7 @@ class ProductController extends Controller
             'category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
             'name' => 'required|string|max:255',
-            'sku' => 'required|string|max:100|unique:products,sku',
+            'sku' => 'nullable|string|max:100|unique:products,sku',
             'barcode' => 'nullable|string|max:255',
             'supplier' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
@@ -77,6 +78,8 @@ class ProductController extends Controller
         }
 
         unset($validated['product_image']);
+
+        $validated['sku'] = Product::generateSku();
 
         Product::create($validated);
 
@@ -115,7 +118,7 @@ class ProductController extends Controller
             'category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
             'name' => 'required|string|max:255',
-            'sku' => 'required|string|max:100|unique:products,sku,'.$product->id,
+            'sku' => 'required|string|max:100|unique:products,sku,'.$product->id.'|regex:/^PR\d{5}$/',
             'barcode' => 'nullable|string|max:255',
             'supplier' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',

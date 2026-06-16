@@ -79,4 +79,26 @@ class Product extends Model
     {
         return $this->image ? Storage::disk('public')->url($this->image) : null;
     }
+
+    public function formattedSku(): string
+    {
+        return $this->sku;
+    }
+
+    public static function generateSku(): string
+    {
+        $max = static::query()
+            ->where('sku', 'like', 'PR%')
+            ->pluck('sku')
+            ->map(function (string $sku) {
+                if (preg_match('/^PR(\d+)$/', $sku, $matches)) {
+                    return (int) $matches[1];
+                }
+
+                return 0;
+            })
+            ->max() ?? 0;
+
+        return 'PR'.str_pad((string) ($max + 1), 5, '0', STR_PAD_LEFT);
+    }
 }

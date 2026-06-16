@@ -11,7 +11,7 @@ class CathedisApiService
     public function __construct(private CathedisSessionService $session) {}
 
     /** @var list<string> */
-    private array $cityEndpoints = [
+    private array $legacyCityEndpoints = [
         '/cities',
         '/api/cities',
         '/api/v1/cities',
@@ -61,7 +61,18 @@ class CathedisApiService
             ];
         }
 
-        foreach ($this->cityEndpoints as $endpoint) {
+        $citiesProbe = $this->fetchCitiesFromApi($apiUrl);
+        if ($citiesProbe['count'] > 0) {
+            return [
+                ...$status,
+                'ok' => true,
+                'message' => 'Connexion Cathedis OK — '.$citiesProbe['count'].' villes disponibles via API.',
+                'endpoint' => $citiesProbe['endpoint'],
+                'api_cities_count' => $citiesProbe['count'],
+            ];
+        }
+
+        foreach ($this->legacyCityEndpoints as $endpoint) {
             try {
                 $response = $this->session->http($apiUrl)->get($endpoint);
 
@@ -82,7 +93,7 @@ class CathedisApiService
             return [
                 ...$status,
                 'ok' => true,
-                'message' => 'Connexion Cathedis OK (session active sur api.cathedis.delivery).',
+                'message' => 'Connexion Cathedis OK (session active). Synchronisez les villes pour mettre à jour la liste.',
             ];
         }
 
@@ -108,9 +119,12 @@ class CathedisApiService
             $this->session->authenticate($apiUrl);
         }
 
-        $synced = 0;
+        $probe = $this->fetchCitiesFromApi($apiUrl);
+        if ($probe['items'] !== []) {
+            return $this->persistCities($probe['items']);
+        }
 
-        foreach ($this->cityEndpoints as $endpoint) {
+        foreach ($this->legacyCityEndpoints as $endpoint) {
             try {
                 $response = $this->session->http($apiUrl)->get($endpoint);
 
@@ -120,21 +134,8 @@ class CathedisApiService
 
                 $items = $this->normalizeCityPayload($response->json());
 
-                if ($items === []) {
-                    continue;
-                }
-
-                foreach ($items as $item) {
-                    if (empty($item['name'])) {
-                        continue;
-                    }
-
-                    City::upsertFromPayload($item);
-                    $synced++;
-                }
-
-                if ($synced > 0) {
-                    return $synced;
+                if ($items !== []) {
+                    return $this->persistCities($items);
                 }
             } catch (\Throwable $e) {
                 Log::warning('Cathedis city sync endpoint failed', [
@@ -144,14 +145,72 @@ class CathedisApiService
             }
         }
 
+        Log::warning('Cathedis city sync: API indisponible, utilisation de la liste par défaut (32 villes).');
+
         $this->seedDefaults();
 
         return City::query()->count();
     }
 
+    /**
+     * @return array{endpoint: string, count: int, items: list<array<string, mixed>>}
+     */
+    public function fetchCitiesFromApi(string $apiUrl): array
+    {
+        $endpoint = (string) config('cathedis.cities_endpoint', '/ws/rest/com.axelor.apps.base.db.City/search');
+
+        try {
+            $response = $this->session->http($apiUrl)
+                ->asJson()
+                ->post($endpoint, [
+                    'limit' => (int) config('cathedis.cities_limit', -1),
+                    'offset' => 0,
+                    'fields' => ['id', 'name', 'displayName'],
+                ]);
+
+            if (! $response->successful()) {
+                return ['endpoint' => $endpoint, 'count' => 0, 'items' => []];
+            }
+
+            $items = $this->normalizeCityPayload($response->json());
+
+            return [
+                'endpoint' => $endpoint,
+                'count' => count($items),
+                'items' => $items,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Cathedis Axelor city fetch failed', [
+                'endpoint' => $endpoint,
+                'message' => $e->getMessage(),
+            ]);
+
+            return ['endpoint' => $endpoint, 'count' => 0, 'items' => []];
+        }
+    }
+
     public function seedDefaults(): void
     {
         (new \Database\Seeders\CathedisCitySeeder)->run();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $items
+     */
+    private function persistCities(array $items): int
+    {
+        $synced = 0;
+
+        foreach ($items as $item) {
+            if (empty($item['name'])) {
+                continue;
+            }
+
+            City::upsertFromPayload($item);
+            $synced++;
+        }
+
+        return $synced;
     }
 
     /**
@@ -161,6 +220,10 @@ class CathedisApiService
     {
         if (! is_array($payload)) {
             return [];
+        }
+
+        if (isset($payload['status']) && (int) $payload['status'] === 0 && isset($payload['data']) && is_array($payload['data'])) {
+            $payload = $payload['data'];
         }
 
         if (isset($payload['data']) && is_array($payload['data'])) {
@@ -175,17 +238,25 @@ class CathedisApiService
             return [];
         }
 
-        return array_map(function ($item) {
+        return array_values(array_filter(array_map(function ($item) {
             if (! is_array($item)) {
-                return ['name' => (string) $item];
+                $name = trim((string) $item);
+
+                return $name === '' ? null : ['name' => $name];
+            }
+
+            $name = trim((string) ($item['displayName'] ?? $item['name'] ?? $item['label'] ?? $item['city'] ?? ''));
+
+            if ($name === '') {
+                return null;
             }
 
             return [
-                'name' => $item['name'] ?? $item['label'] ?? $item['city'] ?? '',
+                'name' => $name,
                 'cathedis_code' => $item['id'] ?? $item['code'] ?? $item['city_id'] ?? null,
                 'zone' => $item['zone'] ?? null,
             ];
-        }, $payload);
+        }, $payload)));
     }
 
     private function apiUrl(?DeliveryPartner $partner): string

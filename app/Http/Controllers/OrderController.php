@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMode;
 use App\Enums\UserRole;
+use App\Models\City;
 use App\Models\Client;
 use App\Models\DeliveryPartner;
 use App\Models\Order;
@@ -40,6 +41,7 @@ class OrderController extends Controller
             'items' => $this->orderList->filteredItems($request, $user),
             'statuses' => $this->orderList->statuses(),
             'categories' => $this->orderList->categories(),
+            'cities' => $this->orderList->cities(),
         ]);
     }
 
@@ -103,13 +105,44 @@ class OrderController extends Controller
             'defaultDeliveryCost' => (float) Setting::get('delivery_fee', 0),
             'isCommercial' => $user->isCommercial(),
             'initialItems' => $initialItems ?? [],
+            'cities' => $this->cities(),
+            'citiesData' => $this->citiesData(),
         ];
     }
 
-    public function store(Request $request): RedirectResponse
+    /**
+     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, delivery_cost: float}>
+     */
+    private function citiesData()
+    {
+        $pack = config('cathedis_cities.default_pack', 'silver');
+
+        return $this->cities()->map(fn (City $city) => [
+            'id' => $city->id,
+            'name' => $city->name,
+            'delivery_cost' => $city->deliveryCost($pack),
+        ])->values();
+    }
+
+    private function cities()
+    {
+        return City::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validateOrderRequest(Request $request): array
     {
         $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
+            'client_id' => 'nullable|exists:clients,id',
+            'client_name' => 'nullable|string|max:255',
+            'client_phone' => 'nullable|string|max:50',
+            'city_id' => 'nullable|exists:cities,id',
             'order_date' => 'nullable|date',
             'commercial_id' => 'nullable|exists:users,id',
             'livreur_id' => 'nullable|exists:users,id',
@@ -125,6 +158,53 @@ class OrderController extends Controller
             'submit_action' => 'nullable|in:draft,submit',
         ]);
 
+        if (empty($validated['client_id'])) {
+            $request->validate([
+                'client_name' => 'required|string|max:255',
+                'city_id' => 'required|exists:cities,id',
+            ]);
+            $validated['client_name'] = $request->input('client_name');
+            $validated['city_id'] = $request->input('city_id');
+        }
+
+        return $validated;
+    }
+
+    private function resolveClientId(array $validated, User $user): int
+    {
+        if (! empty($validated['client_id'])) {
+            $client = Client::findOrFail($validated['client_id']);
+
+            if (! empty($validated['city_id'])) {
+                $city = City::find($validated['city_id']);
+                $client->update([
+                    'city_id' => $city?->id,
+                    'city' => $city?->name,
+                ]);
+            }
+
+            return $client->id;
+        }
+
+        $city = City::findOrFail($validated['city_id']);
+
+        $client = Client::create([
+            'name' => $validated['client_name'],
+            'phone' => $validated['client_phone'] ?? null,
+            'city_id' => $city->id,
+            'city' => $city->name,
+            'commercial_id' => $validated['commercial_id'] ?? $user->id,
+            'payment_mode' => $validated['payment_mode'] ?? null,
+            'is_active' => true,
+        ]);
+
+        return $client->id;
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $this->validateOrderRequest($request);
+
         $user = auth()->user();
 
         if ($user->isCommercial()) {
@@ -133,6 +213,7 @@ class OrderController extends Controller
         }
 
         $order = DB::transaction(function () use ($validated, $user) {
+            $clientId = $this->resolveClientId($validated, $user);
             $subtotal = 0;
             $items = [];
 
@@ -155,7 +236,7 @@ class OrderController extends Controller
 
             $order = Order::create([
                 'reference' => Order::generateReference(),
-                'client_id' => $validated['client_id'],
+                'client_id' => $clientId,
                 'commercial_id' => $validated['commercial_id'] ?? auth()->id(),
                 'livreur_id' => $validated['livreur_id'] ?? null,
                 'status' => OrderStatus::Nouvelle,
@@ -216,7 +297,9 @@ class OrderController extends Controller
             ->route('orders.bon', $order)
             ->with('success', $user->isCommercial()
                 ? 'Commande enregistrée. Cliquez sur « Envoyer à l\'admin » pour la soumettre.'
-                : 'Commande créée.');
+                : (empty($validated['client_id'])
+                    ? 'Commande créée. Le client a été enregistré automatiquement.'
+                    : 'Commande créée.'));
     }
 
     public function update(Request $request, Order $order): RedirectResponse
@@ -224,21 +307,7 @@ class OrderController extends Controller
         $this->authorizeOrder($order);
         abort_unless($order->canBeEditedInForm(), 403, 'Cette commande ne peut plus être modifiée.');
 
-        $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
-            'order_date' => 'nullable|date',
-            'commercial_id' => 'nullable|exists:users,id',
-            'livreur_id' => 'nullable|exists:users,id',
-            'payment_mode' => ['nullable', Rule::enum(PaymentMode::class)],
-            'notes' => 'nullable|string',
-            'internal_notes' => 'nullable|string',
-            'discount' => 'nullable|numeric|min:0',
-            'delivery_cost' => 'nullable|numeric|min:0',
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.unit_price' => 'required|numeric|min:0',
-        ]);
+        $validated = $this->validateOrderRequest($request);
 
         $user = auth()->user();
 
@@ -248,6 +317,7 @@ class OrderController extends Controller
         }
 
         DB::transaction(function () use ($validated, $order, $user) {
+            $clientId = $this->resolveClientId($validated, $user);
             $subtotal = 0;
             $items = [];
 
@@ -269,7 +339,7 @@ class OrderController extends Controller
             $total = max(0, $subtotal + $deliveryCost - $discount);
 
             $order->update([
-                'client_id' => $validated['client_id'],
+                'client_id' => $clientId,
                 'commercial_id' => $validated['commercial_id'] ?? $order->commercial_id,
                 'livreur_id' => $validated['livreur_id'] ?? null,
                 'subtotal' => $subtotal,

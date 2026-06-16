@@ -92,8 +92,13 @@
         <fieldset x-bind:disabled="!formActive" class="border-0 p-0 m-0 min-w-0">
             <div class="px-3 py-2.5 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-12 gap-x-2 gap-y-2">
                 <div class="col-span-1 xl:col-span-2">
-                    <label for="sku" class="admin-product-form-label">Réf produit *</label>
-                    <input type="text" id="sku" name="sku" value="{{ old('sku', $product->sku ?? '') }}" @if($formActive) required @endif placeholder="SAM-S24-001" class="admin-product-form-input font-mono text-xs">
+                    <label for="sku" class="admin-product-form-label">Réf produit</label>
+                    @if($isEdit)
+                        <input type="text" id="sku" name="sku" value="{{ old('sku', $product->sku) }}" readonly class="admin-product-form-readonly font-mono text-xs">
+                    @else
+                        <input type="text" id="sku" value="{{ $previewSku }}" readonly class="admin-product-form-readonly font-mono text-xs">
+                        <p class="text-[10px] text-slate-500 mt-0.5">Attribuée automatiquement à l'enregistrement</p>
+                    @endif
                     @error('sku')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
                 </div>
                 <div class="col-span-1 xl:col-span-2">

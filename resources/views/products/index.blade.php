@@ -56,6 +56,7 @@
                     'formActive' => $formActive,
                     'categories' => $categories,
                     'brands' => $brands,
+                    'previewSku' => $previewSku ?? null,
                 ])
             </div>
 

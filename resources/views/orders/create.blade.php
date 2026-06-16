@@ -33,27 +33,34 @@
                     >
                 </div>
                 <div>
-                    <label for="client_id" class="admin-order-form-label">ID client *</label>
+                    <label for="client_id" class="admin-order-form-label">Client *</label>
                     <select
                         id="client_id"
                         name="client_id"
-                        required
                         x-model="clientId"
                         @change="onClientChange()"
                         class="admin-order-form-input font-mono text-xs"
                     >
-                        <option value="">Sélectionner...</option>
+                        <option value="">+ Nouveau client</option>
                         @foreach($clients as $client)
                             <option value="{{ $client->id }}" @selected(old('client_id', $order?->client_id) == $client->id)>
-                                {{ $client->formattedId() }}
+                                {{ $client->formattedId() }} — {{ $client->name }}
                             </option>
                         @endforeach
                     </select>
                     @error('client_id')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
                 </div>
                 <div>
-                    <label class="admin-order-form-label">Nom client</label>
-                    <input type="text" x-model="clientName" readonly class="admin-order-form-readonly">
+                    <label class="admin-order-form-label">Nom client *</label>
+                    <input
+                        type="text"
+                        name="client_name"
+                        x-model="clientName"
+                        :readonly="!isNewClient"
+                        :required="isNewClient"
+                        :class="isNewClient ? 'admin-order-form-input' : 'admin-order-form-readonly'"
+                    >
+                    @error('client_name')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
                 </div>
                 <div class="col-span-2 md:col-span-1 xl:col-span-2">
                     <label class="admin-order-form-label">Commercial</label>
@@ -76,10 +83,38 @@
 
         {{-- Barre 2 --}}
         <div class="admin-order-form-bar">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-2 gap-y-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-2 gap-y-2">
                 <div>
-                    <label class="admin-order-form-label">Ville livraison</label>
-                    <input type="text" x-model="clientCity" readonly class="admin-order-form-readonly">
+                    <label for="city_id" class="admin-order-form-label">Ville livraison *</label>
+                    <select
+                        id="city_id"
+                        name="city_id"
+                        x-model="cityId"
+                        @change="onCityChange()"
+                        :required="isNewClient || !clientId"
+                        class="admin-order-form-input"
+                    >
+                        <option value="">— Sélectionner une ville —</option>
+                        @foreach($cities as $cityOption)
+                            <option
+                                value="{{ $cityOption->id }}"
+                                @selected(old('city_id', $order?->client?->city_id) == $cityOption->id)
+                            >{{ $cityOption->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('city_id')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
+                </div>
+                <div x-show="isNewClient" x-cloak>
+                    <label for="client_phone" class="admin-order-form-label">Téléphone client</label>
+                    <input
+                        type="text"
+                        id="client_phone"
+                        name="client_phone"
+                        x-model="clientPhone"
+                        class="admin-order-form-input"
+                        placeholder="06..."
+                    >
+                    @error('client_phone')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
                 </div>
                 @if(! $isCommercial)
                 <div>
@@ -264,8 +299,12 @@
     <script>
     function orderForm() {
         const clients = @json($clientsData);
+        const cities = @json($citiesData);
         const products = @json($productsData);
         const initialItems = @json($initialItems ?? []);
+        const oldClientName = @json(old('client_name', ''));
+        const oldCityId = @json(old('city_id', $order?->client?->city_id ?? ''));
+        const oldClientId = @json(old('client_id', $order?->client_id ?? ''));
 
         function buildItem(data = {}) {
             const product = products.find(p => String(p.id) === String(data.product_id || ''));
@@ -280,9 +319,11 @@
         }
 
         return {
-            clientId: @json(old('client_id', $order?->client_id ?? '')),
-            clientName: '',
-            clientCity: '',
+            clientId: oldClientId ? String(oldClientId) : '',
+            isNewClient: ! oldClientId,
+            clientName: oldClientName,
+            clientPhone: @json(old('client_phone', '')),
+            cityId: oldCityId ? String(oldCityId) : '',
             commercialId: @json(old('commercial_id', $order?->commercial_id ?? '')),
             paymentMode: @json(old('payment_mode', $order?->payment_mode?->value ?? '')),
             deliveryCost: @json(old('delivery_cost', $order?->delivery_cost ?? $defaultDeliveryCost)),
@@ -290,27 +331,49 @@
             items: initialItems.length ? initialItems.map(item => buildItem(item)) : [buildItem()],
             init() {
                 if (this.clientId) {
-                    this.onClientChange();
+                    this.onClientChange(false);
+                } else if (this.cityId) {
+                    this.onCityChange(false);
                 }
             },
-            onClientChange() {
+            onClientChange(updateDeliveryCost = true) {
+                this.isNewClient = ! this.clientId;
+
+                if (this.isNewClient) {
+                    if (updateDeliveryCost && ! oldClientName) {
+                        this.clientName = '';
+                    }
+                    return;
+                }
+
                 const client = clients.find(c => String(c.id) === String(this.clientId));
                 if (! client) {
                     this.clientName = '';
-                    this.clientCity = '';
-                    this.paymentMode = '';
+                    this.cityId = '';
                     return;
                 }
+
                 this.clientName = client.name;
-                this.clientCity = client.city || '—';
+                this.cityId = client.city_id ? String(client.city_id) : '';
                 if (client.commercial_id && ! this.commercialId) {
                     this.commercialId = String(client.commercial_id);
                 }
                 if (client.payment_mode) {
                     this.paymentMode = client.payment_mode;
                 }
-                if (client.delivery_cost > 0) {
-                    this.deliveryCost = client.delivery_cost;
+                if (updateDeliveryCost) {
+                    this.applyCityDeliveryCost();
+                }
+            },
+            onCityChange(updateDeliveryCost = true) {
+                if (updateDeliveryCost) {
+                    this.applyCityDeliveryCost();
+                }
+            },
+            applyCityDeliveryCost() {
+                const city = cities.find(c => String(c.id) === String(this.cityId));
+                if (city && city.delivery_cost > 0) {
+                    this.deliveryCost = city.delivery_cost;
                 }
             },
             onProductChange(index) {

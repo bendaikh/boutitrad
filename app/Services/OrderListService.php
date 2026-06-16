@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\OrderStatus;
 use App\Models\Category;
+use App\Models\City;
 use App\Models\OrderItem;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -48,7 +49,13 @@ class OrderListService
 
                 if ($request->filled('ville')) {
                     $ville = trim($request->ville);
-                    $q->whereHas('client', fn ($cq) => $cq->where('city', 'like', "%{$ville}%"));
+                    $q->whereHas('client', function ($cq) use ($ville) {
+                        if (ctype_digit($ville)) {
+                            $cq->where('city_id', (int) $ville);
+                        } else {
+                            $cq->where('city', 'like', "%{$ville}%");
+                        }
+                    });
                 }
 
                 if ($request->filled('status')) {
@@ -79,5 +86,14 @@ class OrderListService
     public function statuses(): array
     {
         return OrderStatus::cases();
+    }
+
+    public function cities()
+    {
+        return City::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
     }
 }

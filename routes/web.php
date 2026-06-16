@@ -102,6 +102,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
         Route::resource('users', UserController::class)->except(['show']);
         Route::get('settings/permissions', [SettingController::class, 'permissions'])->name('settings.permissions');
+        Route::post('settings/permissions', [SettingController::class, 'storePermissionUser'])->name('settings.permissions.store');
+        Route::put('settings/permissions/{user}', [SettingController::class, 'updatePermissionUser'])->name('settings.permissions.update');
+        Route::delete('settings/permissions/{user}', [SettingController::class, 'destroyPermissionUser'])->name('settings.permissions.destroy');
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
         Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
     });

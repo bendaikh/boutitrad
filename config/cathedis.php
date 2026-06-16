@@ -10,4 +10,6 @@ return [
     'pickup_city' => env('CATHEDIS_PICKUP_CITY', 'Casablanca'),
     'pack' => env('CATHEDIS_PACK', 'silver'),
     'verify_ssl' => env('CATHEDIS_VERIFY_SSL', env('APP_ENV') === 'production'),
+    'cities_endpoint' => env('CATHEDIS_CITIES_ENDPOINT', '/ws/rest/com.axelor.apps.base.db.City/search'),
+    'cities_limit' => env('CATHEDIS_CITIES_LIMIT', -1),
 ];

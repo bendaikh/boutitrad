@@ -55,9 +55,11 @@
             >
                 @php $user = auth()->user(); @endphp
 
+                @if($user->hasPermission('dashboard.access'))
                 <x-admin.nav-link route="dashboard" icon="chart">BELDI-MALAKI</x-admin.nav-link>
+                @endif
 
-                @if($user->isSuperAdmin() || $user->isCommercial())
+                @if($user->canAccessClientsModule())
                     <x-admin.nav-group
                         label="Clients"
                         menu-key="clients"
@@ -65,12 +67,16 @@
                         :active="request()->routeIs('clients.*')"
                         :open="$openMenu === 'clients'"
                     >
-                        <x-admin.nav-sublink route="clients.index" :match="['clients.index', 'clients.show', 'clients.create', 'clients.edit']" icon="users">Fiche client</x-admin.nav-sublink>
-                        <x-admin.nav-sublink route="clients.balances" icon="money">Balance client</x-admin.nav-sublink>
+                        @if($user->hasAnyPermission(['clients.create', 'clients.view', 'clients.update', 'clients.delete']))
+                            <x-admin.nav-sublink route="clients.index" :match="['clients.index', 'clients.show', 'clients.create', 'clients.edit']" icon="users">Fiche client</x-admin.nav-sublink>
+                        @endif
+                        @if($user->hasAnyPermission(['clients.balance.view', 'clients.balance.print']))
+                            <x-admin.nav-sublink route="clients.balances" icon="money">Balance client</x-admin.nav-sublink>
+                        @endif
                     </x-admin.nav-group>
                 @endif
 
-                @if($user->isSuperAdmin() || $user->isGestionnaireStock())
+                @if($user->canAccessStockModule())
                     <x-admin.nav-group
                         label="Stock"
                         menu-key="stock"
@@ -78,13 +84,19 @@
                         :active="request()->routeIs('products.*', 'categories.*', 'stock.*')"
                         :open="$openMenu === 'stock'"
                     >
-                        <x-admin.nav-sublink route="products.index" icon="box">Produits</x-admin.nav-sublink>
-                        <x-admin.nav-sublink route="categories.index" icon="tag">Catégorie</x-admin.nav-sublink>
-                        <x-admin.nav-sublink route="stock.index" icon="warehouse">Stock</x-admin.nav-sublink>
+                        @if($user->hasAnyPermission(['products.view', 'products.create', 'products.update', 'products.delete']))
+                            <x-admin.nav-sublink route="products.index" icon="box">Produits</x-admin.nav-sublink>
+                        @endif
+                        @if($user->hasAnyPermission(['categories.view', 'categories.create', 'categories.update', 'categories.delete']))
+                            <x-admin.nav-sublink route="categories.index" icon="tag">Catégorie</x-admin.nav-sublink>
+                        @endif
+                        @if($user->hasAnyPermission(['stock.view', 'stock.print']))
+                            <x-admin.nav-sublink route="stock.index" icon="warehouse">Stock</x-admin.nav-sublink>
+                        @endif
                     </x-admin.nav-group>
                 @endif
 
-                @if($user->isSuperAdmin() || $user->isCommercial())
+                @if($user->canAccessVentesModule())
                     <x-admin.nav-group
                         label="Ventes"
                         menu-key="ventes"
@@ -92,10 +104,18 @@
                         :active="request()->routeIs('orders.*', 'commercials.*', 'sales.*')"
                         :open="$openMenu === 'ventes'"
                     >
-                        <x-admin.nav-sublink route="orders.index" icon="cart">Commandes</x-admin.nav-sublink>
-                        <x-admin.nav-sublink route="commercials.index" icon="briefcase">Commerciaux</x-admin.nav-sublink>
-                        <x-admin.nav-sublink route="sales.balance" icon="money">Balance</x-admin.nav-sublink>
-                        <x-admin.nav-sublink route="sales.payments" icon="payment">Paiement</x-admin.nav-sublink>
+                        @if($user->hasAnyPermission(['orders.view', 'orders.validate', 'orders.create', 'orders.update', 'orders.delete']))
+                            <x-admin.nav-sublink route="orders.index" icon="cart">Commandes</x-admin.nav-sublink>
+                        @endif
+                        @if($user->hasAnyPermission(['commercials.view', 'commercials.create', 'commercials.update', 'commercials.delete']))
+                            <x-admin.nav-sublink route="commercials.index" icon="briefcase">Commerciaux</x-admin.nav-sublink>
+                        @endif
+                        @if($user->hasAnyPermission(['sales.balance.view', 'sales.balance.print']))
+                            <x-admin.nav-sublink route="sales.balance" icon="money">Balance</x-admin.nav-sublink>
+                        @endif
+                        @if($user->hasAnyPermission(['payments.view', 'payments.create', 'payments.update', 'payments.delete']))
+                            <x-admin.nav-sublink route="sales.payments" icon="payment">Paiement</x-admin.nav-sublink>
+                        @endif
                     </x-admin.nav-group>
                 @endif
 

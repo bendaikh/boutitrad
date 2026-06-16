@@ -1,6 +1,18 @@
 <?php
 
 return [
+    'required' => 'Le champ :attribute est obligatoire.',
+    'email' => 'Le champ :attribute doit être une adresse email valide.',
+    'unique' => 'Cette valeur de :attribute est déjà utilisée.',
+    'min' => [
+        'string' => 'Le champ :attribute doit contenir au moins :min caractères.',
+    ],
+    'attributes' => [
+        'name' => 'nom utilisateur',
+        'email' => 'login',
+        'password' => 'mot de passe',
+        'role' => 'profil',
+    ],
     'image' => 'image',
     'category_image' => 'image de la catégorie',
     'brand_image' => 'image de la marque',

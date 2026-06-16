@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use App\Support\PermissionCatalog;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -18,6 +19,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'permissions',
         'phone',
         'whatsapp',
         'prospect_zone',
@@ -37,6 +39,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,
+            'permissions' => 'array',
             'is_active' => 'boolean',
             'commission_rate' => 'decimal:2',
         ];
@@ -65,6 +68,87 @@ class User extends Authenticatable
     public function hasRole(UserRole ...$roles): bool
     {
         return in_array($this->role, $roles, true);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function effectivePermissions(): array
+    {
+        if ($this->isSuperAdmin()) {
+            return ['*'];
+        }
+
+        if (is_array($this->permissions) && $this->permissions !== []) {
+            return $this->permissions;
+        }
+
+        return PermissionCatalog::defaultsForRole($this->role->value);
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        $permissions = $this->effectivePermissions();
+
+        if (in_array('*', $permissions, true)) {
+            return true;
+        }
+
+        return in_array($permission, $permissions, true);
+    }
+
+    /**
+     * @param  list<string>  $permissions
+     */
+    public function hasAnyPermission(array $permissions): bool
+    {
+        foreach ($permissions as $permission) {
+            if ($this->hasPermission($permission)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function canAccessClientsModule(): bool
+    {
+        return $this->hasAnyPermission([
+            'clients.create', 'clients.view', 'clients.update', 'clients.delete',
+            'clients.balance.view', 'clients.balance.print',
+        ]);
+    }
+
+    public function canAccessStockModule(): bool
+    {
+        return $this->hasAnyPermission([
+            'products.view', 'products.create', 'products.update', 'products.delete',
+            'categories.view', 'categories.create', 'categories.update', 'categories.delete',
+            'stock.view', 'stock.print',
+        ]);
+    }
+
+    public function canAccessVentesModule(): bool
+    {
+        return $this->hasAnyPermission([
+            'orders.view', 'orders.validate', 'orders.create', 'orders.update', 'orders.delete',
+            'commercials.view', 'commercials.create', 'commercials.update', 'commercials.delete',
+            'sales.balance.view', 'sales.balance.print',
+            'payments.view', 'payments.create', 'payments.update', 'payments.delete',
+        ]);
+    }
+
+    /**
+     * @param  list<string>  $permissions
+     */
+    public function syncPermissions(array $permissions): void
+    {
+        $this->permissions = PermissionCatalog::sanitize($permissions);
+        $this->save();
     }
 
     public function commercialOrders(): HasMany
