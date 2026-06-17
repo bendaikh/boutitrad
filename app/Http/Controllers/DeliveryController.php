@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Services\CathedisApiService;
 use App\Services\OrderWorkflowService;
+use App\Support\CathedisConfig;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -22,6 +23,7 @@ class DeliveryController extends Controller
         return view('deliveries.partners', [
             'partners' => DeliveryPartner::query()->orderByDesc('is_default')->orderBy('name')->get(),
             'cathedis' => $cathedis->connectionStatus(),
+            'cathedisUsername' => CathedisConfig::username(),
         ]);
     }
 
@@ -52,6 +54,7 @@ class DeliveryController extends Controller
 
     public function syncCathedisCities(CathedisApiService $cathedis): RedirectResponse
     {
+        CathedisConfig::syncFromEnv();
         $count = $cathedis->syncCities();
 
         return back()->with('success', "Villes Cathedis synchronisées ({$count} villes disponibles).");
@@ -59,12 +62,32 @@ class DeliveryController extends Controller
 
     public function testCathedisConnection(CathedisApiService $cathedis): RedirectResponse
     {
+        CathedisConfig::syncFromEnv();
         $result = $cathedis->testConnection();
 
         return back()->with(
             ($result['ok'] ?? false) ? 'success' : 'error',
             $result['message'],
         );
+    }
+
+    public function storeCathedisConfig(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'cathedis_enabled' => ['nullable', 'boolean'],
+            'cathedis_username' => ['nullable', 'email', 'max:150'],
+            'cathedis_password' => ['nullable', 'string', 'max:255'],
+            'cathedis_api_token' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        CathedisConfig::persist([
+            'enabled' => $request->boolean('cathedis_enabled'),
+            'username' => $validated['cathedis_username'] ?? null,
+            'password' => $validated['cathedis_password'] ?? null,
+            'api_token' => $validated['cathedis_api_token'] ?? null,
+        ]);
+
+        return back()->with('success', 'Identifiants Cathedis enregistrés. Cliquez sur « Tester la connexion ».');
     }
 
     public function transport(Request $request): View

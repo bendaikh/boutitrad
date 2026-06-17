@@ -16,6 +16,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Support\ImageUpload;
 use App\Services\CommissionService;
+use App\Services\CathedisDispatchException;
 use App\Services\OrderListService;
 use App\Services\OrderWorkflowService;
 use Illuminate\Http\RedirectResponse;
@@ -84,6 +85,8 @@ class OrderController extends Controller
                 'id' => $client->id,
                 'formattedId' => $client->formattedId(),
                 'name' => $client->name,
+                'phone' => $client->phone,
+                'address' => $client->address,
                 'city' => $client->deliveryCityName(),
                 'city_id' => $client->city_id,
                 'delivery_cost' => $client->suggestedDeliveryCost(),
@@ -142,6 +145,8 @@ class OrderController extends Controller
             'client_id' => 'nullable|exists:clients,id',
             'client_name' => 'nullable|string|max:255',
             'client_phone' => 'nullable|string|max:50',
+            'client_address' => 'nullable|string|max:500',
+            'update_client_address' => 'nullable|boolean',
             'city_id' => 'nullable|exists:cities,id',
             'order_date' => 'nullable|date',
             'commercial_id' => 'nullable|exists:users,id',
@@ -161,9 +166,13 @@ class OrderController extends Controller
         if (empty($validated['client_id'])) {
             $request->validate([
                 'client_name' => 'required|string|max:255',
+                'client_phone' => 'required|string|max:50',
+                'client_address' => 'required|string|max:500',
                 'city_id' => 'required|exists:cities,id',
             ]);
             $validated['client_name'] = $request->input('client_name');
+            $validated['client_phone'] = $request->input('client_phone');
+            $validated['client_address'] = $request->input('client_address');
             $validated['city_id'] = $request->input('city_id');
         }
 
@@ -175,12 +184,30 @@ class OrderController extends Controller
         if (! empty($validated['client_id'])) {
             $client = Client::findOrFail($validated['client_id']);
 
+            $updates = [];
+
             if (! empty($validated['city_id'])) {
                 $city = City::find($validated['city_id']);
-                $client->update([
-                    'city_id' => $city?->id,
-                    'city' => $city?->name,
-                ]);
+                $updates['city_id'] = $city?->id;
+                $updates['city'] = $city?->name;
+            }
+
+            if (! empty($validated['client_phone'])) {
+                $updates['phone'] = $validated['client_phone'];
+            }
+
+            $shouldUpdateAddress = ! empty($validated['client_address'])
+                && (
+                    ! $user->isCommercial()
+                    || ! empty($validated['update_client_address'])
+                );
+
+            if ($shouldUpdateAddress) {
+                $updates['address'] = $validated['client_address'];
+            }
+
+            if ($updates !== []) {
+                $client->update($updates);
             }
 
             return $client->id;
@@ -191,6 +218,7 @@ class OrderController extends Controller
         $client = Client::create([
             'name' => $validated['client_name'],
             'phone' => $validated['client_phone'] ?? null,
+            'address' => $validated['client_address'] ?? null,
             'city_id' => $city->id,
             'city' => $city->name,
             'commercial_id' => $validated['commercial_id'] ?? $user->id,
@@ -416,16 +444,23 @@ class OrderController extends Controller
         ]);
 
         try {
-            $this->workflow->validateAndDispatchToPartner(
+            $order = $this->workflow->validateAndDispatchToPartner(
                 $order,
                 auth()->user(),
                 $validated['delivery_partner_id'] ?? null,
             );
         } catch (\InvalidArgumentException $e) {
             return back()->withErrors(['workflow' => $e->getMessage()]);
+        } catch (CathedisDispatchException $e) {
+            return back()->withErrors(['workflow' => $e->getMessage()]);
         }
 
-        return back()->with('success', 'Commande validée et transmise au partenaire de livraison.');
+        $message = 'Commande validée et transmise à Cathedis.';
+        if ($order->partner_tracking_ref) {
+            $message .= ' Réf. suivi : '.$order->partner_tracking_ref;
+        }
+
+        return back()->with('success', $message);
     }
 
     public function rejectOrder(Request $request, Order $order): RedirectResponse

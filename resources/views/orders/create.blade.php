@@ -82,35 +82,65 @@
         </div>
 
         {{-- Barre 2 --}}
-        <div class="admin-order-form-bar">
+        <div class="admin-order-form-bar" :class="cityOpen && 'relative z-[150]'">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-2 gap-y-2">
-                <div>
-                    <label for="city_id" class="admin-order-form-label">Ville livraison *</label>
-                    <select
-                        id="city_id"
-                        name="city_id"
-                        x-model="cityId"
-                        @change="onCityChange()"
-                        :required="isNewClient || !clientId"
+                <div class="relative" @click.outside="closeCityDropdown()">
+                    <label for="city_search" class="admin-order-form-label">Ville livraison *</label>
+                    <input type="hidden" name="city_id" :value="cityId">
+                    <input
+                        type="text"
+                        id="city_search"
+                        x-ref="cityInput"
+                        x-model="cityQuery"
+                        @focus="openCityDropdown($event)"
+                        @click="openCityDropdown($event)"
+                        @input="openCityDropdown(); onCityQueryInput()"
+                        @keydown.escape.prevent="closeCityDropdown()"
+                        @keydown.arrow-down.prevent="openCityDropdown()"
+                        autocomplete="off"
+                        placeholder="Ex : Casa, Rabat, Marrakech…"
+                        required
                         class="admin-order-form-input"
                     >
-                        <option value="">— Sélectionner une ville —</option>
-                        @foreach($cities as $cityOption)
-                            <option
-                                value="{{ $cityOption->id }}"
-                                @selected(old('city_id', $order?->client?->city_id) == $cityOption->id)
-                            >{{ $cityOption->name }}</option>
-                        @endforeach
-                    </select>
+                    <div
+                        x-show="cityOpen"
+                        x-cloak
+                        x-bind:style="cityDropdownStyle"
+                        class="admin-city-search-dropdown"
+                    >
+                        <p
+                            x-show="cityQuery.trim().length < 2"
+                            class="px-3 py-2 text-sm text-slate-500 dark:text-slate-400"
+                            x-text="cityResultsHint"
+                        ></p>
+                        <p
+                            x-show="cityQuery.trim().length >= 2 && cityMatches.length === 0"
+                            class="px-3 py-2 text-sm text-slate-500 dark:text-slate-400"
+                        >Aucune ville trouvée — essayez une autre orthographe</p>
+                        <template x-for="city in filteredCities" :key="city.id">
+                            <button
+                                type="button"
+                                class="admin-city-search-option"
+                                @mousedown.prevent="selectCity(city)"
+                                x-text="city.name"
+                            ></button>
+                        </template>
+                        <p
+                            x-show="cityQuery.trim().length >= 2 && cityMatches.length > 0"
+                            class="admin-city-search-hint"
+                            x-text="cityResultsHint"
+                        ></p>
+                    </div>
                     @error('city_id')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
                 </div>
-                <div x-show="isNewClient" x-cloak>
-                    <label for="client_phone" class="admin-order-form-label">Téléphone client</label>
+                <div>
+                    <label for="client_phone" class="admin-order-form-label">Téléphone client *</label>
                     <input
                         type="text"
                         id="client_phone"
                         name="client_phone"
                         x-model="clientPhone"
+                        :required="isNewClient || !clientId"
                         class="admin-order-form-input"
                         placeholder="06..."
                     >
@@ -140,6 +170,42 @@
                         @endforeach
                     </select>
                     @error('payment_mode')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
+                </div>
+                <div class="col-span-1 sm:col-span-2 lg:col-span-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-0.5">
+                        <label for="client_address" class="admin-order-form-label mb-0">Adresse livraison *</label>
+                        @if($isCommercial)
+                            <label
+                                x-show="!isNewClient && clientId"
+                                x-cloak
+                                class="inline-flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 cursor-pointer select-none"
+                            >
+                                <input
+                                    type="checkbox"
+                                    name="update_client_address"
+                                    value="1"
+                                    x-model="editClientAddress"
+                                    @change="onEditAddressToggle()"
+                                    class="rounded border-slate-300 dark:border-slate-600 text-brand-600 focus:ring-brand-500"
+                                >
+                                Modifier l'adresse du client
+                            </label>
+                        @endif
+                    </div>
+                    <input
+                        type="text"
+                        id="client_address"
+                        name="client_address"
+                        x-model="clientAddress"
+                        :readonly="!canEditClientAddress"
+                        :required="isNewClient || !clientId || editClientAddress"
+                        :class="canEditClientAddress ? 'admin-order-form-input' : 'admin-order-form-readonly'"
+                        placeholder="Quartier, rue, n°…"
+                    >
+                    <p x-show="!isNewClient && clientId && !editClientAddress" x-cloak class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Adresse enregistrée sur la fiche client. Cochez « Modifier l'adresse » pour la changer.
+                    </p>
+                    @error('client_address')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
                 </div>
             </div>
         </div>
@@ -303,8 +369,12 @@
         const products = @json($productsData);
         const initialItems = @json($initialItems ?? []);
         const oldClientName = @json(old('client_name', ''));
+        const oldClientPhone = @json(old('client_phone', $order?->client?->phone ?? ''));
+        const oldClientAddress = @json(old('client_address', $order?->client?->address ?? ''));
         const oldCityId = @json(old('city_id', $order?->client?->city_id ?? ''));
         const oldClientId = @json(old('client_id', $order?->client_id ?? ''));
+        const isCommercialUser = @json($isCommercial);
+        const editClientAddressDefault = @json((bool) old('update_client_address', false));
 
         function buildItem(data = {}) {
             const product = products.find(p => String(p.id) === String(data.product_id || ''));
@@ -322,27 +392,142 @@
             clientId: oldClientId ? String(oldClientId) : '',
             isNewClient: ! oldClientId,
             clientName: oldClientName,
-            clientPhone: @json(old('client_phone', '')),
+            clientPhone: oldClientPhone,
+            clientAddress: oldClientAddress,
+            editClientAddress: editClientAddressDefault,
+            get canEditClientAddress() {
+                if (! isCommercialUser) {
+                    return true;
+                }
+
+                return this.isNewClient || ! this.clientId || this.editClientAddress;
+            },
             cityId: oldCityId ? String(oldCityId) : '',
+            cityQuery: '',
+            cityOpen: false,
+            cityDropdownStyle: '',
             commercialId: @json(old('commercial_id', $order?->commercial_id ?? '')),
             paymentMode: @json(old('payment_mode', $order?->payment_mode?->value ?? '')),
             deliveryCost: @json(old('delivery_cost', $order?->delivery_cost ?? $defaultDeliveryCost)),
             showStock: true,
             items: initialItems.length ? initialItems.map(item => buildItem(item)) : [buildItem()],
+            get cityMatches() {
+                const q = this.normalizeCitySearch(this.cityQuery);
+                if (q.length < 2) {
+                    return [];
+                }
+
+                return cities.filter(c => this.normalizeCitySearch(c.name).includes(q));
+            },
+            get filteredCities() {
+                return this.cityMatches;
+            },
+            get cityResultsHint() {
+                const total = cities.length;
+                const q = this.cityQuery.trim();
+
+                if (q.length < 2) {
+                    return total
+                        ? `Recherche parmi ${total} villes Cathedis — tapez au moins 2 lettres`
+                        : 'Aucune ville disponible — synchronisez Cathedis';
+                }
+
+                const matches = this.cityMatches.length;
+
+                if (matches === 0) {
+                    return '';
+                }
+
+                return matches === 1 ? '1 ville trouvée' : `${matches} villes trouvées`;
+            },
+            normalizeCitySearch(value) {
+                return String(value || '')
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '');
+            },
             init() {
+                this.syncCityQueryFromId();
                 if (this.clientId) {
                     this.onClientChange(false);
                 } else if (this.cityId) {
                     this.onCityChange(false);
                 }
+                this.bindCityDropdownListeners();
+            },
+            bindCityDropdownListeners() {
+                const reposition = () => {
+                    if (this.cityOpen) {
+                        this.updateCityDropdownPosition();
+                    }
+                };
+                window.addEventListener('scroll', reposition, true);
+                window.addEventListener('resize', reposition);
+            },
+            updateCityDropdownPosition() {
+                const input = this.$refs.cityInput;
+                if (! input) {
+                    return;
+                }
+                const rect = input.getBoundingClientRect();
+                const maxHeight = Math.max(240, Math.min(window.innerHeight * 0.7, 448, window.innerHeight - rect.bottom - 12));
+                this.cityDropdownStyle = `top:${rect.bottom + 4}px;left:${rect.left}px;width:${rect.width}px;max-height:${maxHeight}px;`;
+            },
+            openCityDropdown(event = null) {
+                this.cityOpen = true;
+                this.$nextTick(() => this.updateCityDropdownPosition());
+                if (event?.target?.select && this.cityQuery) {
+                    event.target.select();
+                }
+            },
+            closeCityDropdown() {
+                this.cityOpen = false;
+            },
+            syncCityQueryFromId() {
+                if (! this.cityId) {
+                    return;
+                }
+                const city = cities.find(c => String(c.id) === String(this.cityId));
+                if (city) {
+                    this.cityQuery = city.name;
+                }
+            },
+            selectCity(city) {
+                this.cityId = String(city.id);
+                this.cityQuery = city.name;
+                this.closeCityDropdown();
+                this.onCityChange();
+            },
+            onCityQueryInput() {
+                const exact = cities.find(c => this.normalizeCitySearch(c.name) === this.normalizeCitySearch(this.cityQuery));
+                if (exact) {
+                    this.cityId = String(exact.id);
+                    this.applyCityDeliveryCost();
+                    return;
+                }
+                this.cityId = '';
+            },
+            onEditAddressToggle() {
+                if (this.editClientAddress) {
+                    return;
+                }
+
+                const client = clients.find(c => String(c.id) === String(this.clientId));
+                this.clientAddress = client?.address || '';
             },
             onClientChange(updateDeliveryCost = true) {
                 this.isNewClient = ! this.clientId;
+                this.editClientAddress = false;
 
                 if (this.isNewClient) {
                     if (updateDeliveryCost && ! oldClientName) {
                         this.clientName = '';
                     }
+                    this.cityId = '';
+                    this.cityQuery = '';
+                    this.clientPhone = '';
+                    this.clientAddress = '';
+                    this.closeCityDropdown();
                     return;
                 }
 
@@ -350,11 +535,21 @@
                 if (! client) {
                     this.clientName = '';
                     this.cityId = '';
+                    this.cityQuery = '';
+                    this.clientPhone = '';
+                    this.clientAddress = '';
                     return;
                 }
 
                 this.clientName = client.name;
+                this.clientPhone = client.phone || '';
+                this.clientAddress = client.address || '';
                 this.cityId = client.city_id ? String(client.city_id) : '';
+                if (this.cityId) {
+                    this.syncCityQueryFromId();
+                } else {
+                    this.cityQuery = '';
+                }
                 if (client.commercial_id && ! this.commercialId) {
                     this.commercialId = String(client.commercial_id);
                 }

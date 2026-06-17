@@ -254,5 +254,9 @@ class OrderWorkflowService
         if (empty($client->address)) {
             throw new InvalidArgumentException('Le client doit avoir une adresse de livraison pour Cathedis.');
         }
+
+        if (! filled($client->cityRecord?->cathedis_code)) {
+            throw new InvalidArgumentException('La ville du client doit être synchronisée avec Cathedis (code ville manquant).');
+        }
     }
 }

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\City;
 use App\Models\DeliveryPartner;
+use App\Support\CathedisConfig;
 use Illuminate\Support\Facades\Log;
 
 class CathedisApiService
@@ -21,10 +22,10 @@ class CathedisApiService
 
     public function connectionStatus(?DeliveryPartner $partner = null): array
     {
-        $partner ??= DeliveryPartner::defaultPartner();
+        $partner ??= $this->resolvePartner();
         $apiUrl = $this->apiUrl($partner);
-        $enabled = (bool) config('cathedis.enabled');
-        $configured = $this->session->isConfigured();
+        $enabled = CathedisConfig::enabled();
+        $configured = CathedisConfig::isConfigured();
         $authMode = $this->session->tokenConfigured() ? 'token' : ($this->session->credentialsConfigured() ? 'login' : null);
 
         return [
@@ -40,14 +41,15 @@ class CathedisApiService
 
     public function testConnection(?DeliveryPartner $partner = null): array
     {
-        $partner ??= DeliveryPartner::defaultPartner();
+        CathedisConfig::syncFromEnv();
+        $partner ??= $this->resolvePartner();
         $status = $this->connectionStatus($partner);
 
         if (! $status['ready']) {
             return [
                 ...$status,
                 'ok' => false,
-                'message' => 'API Cathedis non configurée. Ajoutez CATHEDIS_USERNAME + CATHEDIS_PASSWORD (ou CATHEDIS_API_TOKEN) dans .env.',
+                'message' => $this->notReadyMessage($status),
             ];
         }
 
@@ -106,10 +108,10 @@ class CathedisApiService
 
     public function syncCities(?DeliveryPartner $partner = null): int
     {
-        $partner ??= DeliveryPartner::defaultPartner();
+        $partner ??= $this->resolvePartner();
         $apiUrl = rtrim($this->apiUrl($partner), '/');
 
-        if (! config('cathedis.enabled') || ! $this->session->isConfigured()) {
+        if (! CathedisConfig::enabled() || ! $this->session->isConfigured()) {
             $this->seedDefaults();
 
             return City::query()->count();
@@ -262,5 +264,47 @@ class CathedisApiService
     private function apiUrl(?DeliveryPartner $partner): string
     {
         return $partner?->api_url ?: (string) config('cathedis.api_url');
+    }
+
+    private function resolvePartner(): ?DeliveryPartner
+    {
+        $partner = DeliveryPartner::defaultPartner();
+
+        if ($partner !== null) {
+            return $partner;
+        }
+
+        if (! CathedisConfig::enabled()) {
+            return null;
+        }
+
+        return DeliveryPartner::firstOrCreate(['code' => 'cathedis'], [
+            'name' => 'Cathedis',
+            'contact_email' => 'contact@cathedis.ma',
+            'contact_phone' => '+212 520 255 255',
+            'api_url' => config('cathedis.api_url'),
+            'is_active' => true,
+            'is_default' => true,
+        ]);
+    }
+
+    /**
+     * @param  array{enabled: bool, configured: bool, partner: ?string}  $status
+     */
+    private function notReadyMessage(array $status): string
+    {
+        if (! $status['enabled']) {
+            return 'API Cathedis désactivée. Dans .env, mettez CATHEDIS_ENABLED=true puis relancez php artisan config:clear et redémarrez le serveur.';
+        }
+
+        if (! $status['configured']) {
+            return 'Identifiants Cathedis manquants. Dans .env, ajoutez CATHEDIS_USERNAME + CATHEDIS_PASSWORD (ou CATHEDIS_API_TOKEN), puis php artisan config:clear.';
+        }
+
+        if (empty($status['partner'])) {
+            return 'Partenaire Cathedis introuvable en base. Rechargez la page Partenaires ou lancez : php artisan db:seed --class=DemoDataSeeder';
+        }
+
+        return 'Configuration Cathedis incomplète.';
     }
 }

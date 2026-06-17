@@ -83,6 +83,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('deliveries/partners', [DeliveryController::class, 'storePartner'])->name('deliveries.partners.store');
         Route::post('deliveries/cathedis/sync-cities', [DeliveryController::class, 'syncCathedisCities'])->name('deliveries.cathedis.sync-cities');
         Route::post('deliveries/cathedis/test', [DeliveryController::class, 'testCathedisConnection'])->name('deliveries.cathedis.test');
+        Route::post('deliveries/cathedis/config', [DeliveryController::class, 'storeCathedisConfig'])->name('deliveries.cathedis.config');
     });
 
     Route::middleware('role:superadmin,commercial')->group(function () {

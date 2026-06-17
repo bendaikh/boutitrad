@@ -91,6 +91,8 @@
             <div class="space-y-4 shrink-0 overflow-y-auto">
                 <div class="admin-card p-5 text-sm space-y-2">
                     <div><span class="text-slate-500 dark:text-slate-400">Client:</span> <strong>{{ $order->client->name }}</strong></div>
+                    <div><span class="text-slate-500 dark:text-slate-400">Téléphone:</span> {{ $order->client->phone ?: '—' }}</div>
+                    <div><span class="text-slate-500 dark:text-slate-400">Adresse:</span> {{ $order->client->address ?: '—' }}</div>
                     <div><span class="text-slate-500 dark:text-slate-400">Ville:</span> {{ $order->client->deliveryCityName() ?: '—' }}</div>
                     @if($order->client->cityRecord)
                         <div><span class="text-slate-500 dark:text-slate-400">Zone Cathedis:</span> {{ $order->client->cityRecord->zone->label() }}</div>
@@ -142,14 +144,16 @@
 
                     <form method="POST" action="{{ route('orders.dispatch', $order) }}" class="admin-card p-5 space-y-3">
                         @csrf
-                        <h3 class="font-semibold">Étape 2 — Valider et envoyer au partenaire</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Validation admin puis transmission automatique au partenaire de livraison (Cathedis).</p>
+                        <h3 class="font-semibold">Étape 2 — Valider et transmettre à Cathedis</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                            La commande sera validée puis envoyée à Cathedis avec le nom, le téléphone et l'adresse du client.
+                        </p>
                         <select name="delivery_partner_id" class="w-full rounded-lg border-slate-300 text-sm dark:bg-slate-800 dark:border-slate-600">
                             @foreach($partners as $partner)
                                 <option value="{{ $partner->id }}" @selected($partner->is_default)>{{ $partner->name }}</option>
                             @endforeach
                         </select>
-                        <button type="submit" class="w-full py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">Valider et transmettre</button>
+                        <button type="submit" class="w-full py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">Valider et transmettre à Cathedis</button>
                     </form>
                     <form method="POST" action="{{ route('orders.reject', $order) }}" class="admin-card p-5 space-y-3 border-red-200 dark:border-red-900">
                         @csrf

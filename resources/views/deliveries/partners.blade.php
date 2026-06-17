@@ -34,6 +34,33 @@
                         <button type="submit" class="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700">Tester la connexion</button>
                     </form>
                 </div>
+
+                <div class="mt-4 rounded-lg border border-slate-200 dark:border-slate-700 p-4 max-w-xl">
+                    <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Identifiants Cathedis</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                        Si le test échoue malgré un .env correct, enregistrez ici les identifiants (stockés en base, prioritaires sur le cache config).
+                    </p>
+                    <form method="POST" action="{{ route('deliveries.cathedis.config') }}" class="space-y-3">
+                        @csrf
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="checkbox" name="cathedis_enabled" value="1" class="rounded border-slate-300 text-brand-600" @checked($cathedis['enabled'] ?? false)>
+                            API Cathedis activée
+                        </label>
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Email / identifiant</label>
+                            <input type="email" name="cathedis_username" value="{{ old('cathedis_username', $cathedisUsername ?? '') }}" class="form-input w-full text-sm" placeholder="compte@cathedis.delivery">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Mot de passe</label>
+                            <input type="password" name="cathedis_password" class="form-input w-full text-sm" placeholder="Laisser vide pour conserver l'actuel">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Token API (optionnel)</label>
+                            <input type="password" name="cathedis_api_token" class="form-input w-full text-sm" placeholder="Uniquement si Cathedis vous a fourni un token">
+                        </div>
+                        <button type="submit" class="px-4 py-2 btn-dark text-sm">Enregistrer les identifiants</button>
+                    </form>
+                </div>
             @endif
             <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
                 Circuit : commercial envoie → admin modifie/valide → transmission automatique Cathedis à la validation.

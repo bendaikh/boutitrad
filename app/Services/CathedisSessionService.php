@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\CathedisConfig;
 use GuzzleHttp\Cookie\CookieJar;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
@@ -14,12 +15,12 @@ class CathedisSessionService
 
     public function credentialsConfigured(): bool
     {
-        return filled(config('cathedis.username')) && filled(config('cathedis.password'));
+        return filled(CathedisConfig::username()) && filled(CathedisConfig::password());
     }
 
     public function tokenConfigured(): bool
     {
-        return filled(config('cathedis.api_token'));
+        return filled(CathedisConfig::apiToken());
     }
 
     public function isConfigured(): bool
@@ -34,7 +35,7 @@ class CathedisSessionService
 
         if ($this->tokenConfigured()) {
             return Http::withOptions($options)
-                ->withToken((string) config('cathedis.api_token'))
+                ->withToken((string) CathedisConfig::apiToken())
                 ->timeout(20)
                 ->acceptJson()
                 ->baseUrl($baseUrl);
@@ -77,8 +78,8 @@ class CathedisSessionService
                 ->timeout(20)
                 ->withHeaders($this->csrfHeaders($loginPage->headers()))
                 ->post($baseUrl.'/callback', [
-                    'username' => config('cathedis.username'),
-                    'password' => config('cathedis.password'),
+                    'username' => CathedisConfig::username(),
+                    'password' => CathedisConfig::password(),
                     'rememberMe' => 'rememberMe',
                     'hash_location' => '',
                 ]);
