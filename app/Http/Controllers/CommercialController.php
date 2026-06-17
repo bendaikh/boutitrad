@@ -28,7 +28,12 @@ class CommercialController extends Controller
         $user = auth()->user();
 
         if ($user->isCommercial()) {
-            return $this->dashboard($user);
+            $commercial = $this->commercialRowFor($user);
+
+            return view('commercials.index', [
+                'commercials' => collect([$commercial]),
+                'commercialView' => true,
+            ]);
         }
 
         $editingCommercial = $request->filled('edit')
@@ -39,10 +44,25 @@ class CommercialController extends Controller
 
         return view('commercials.index', [
             'commercials' => $commercials,
+            'commercialsJson' => $commercials->map(fn (User $commercial) => [
+                'id' => $commercial->id,
+                'formatted_id' => $commercial->formattedCommercialId(),
+                'name' => $commercial->name,
+                'phone' => $commercial->phone ?? '',
+                'email' => $commercial->email,
+                'whatsapp' => $commercial->whatsapp ?? '',
+                'prospect_zone' => $commercial->prospect_zone ?? '',
+                'commission_rate' => $commercial->commission_rate,
+                'effective_commission_rate' => $commercial->effective_commission_rate ?? 0,
+                'delivered_orders_count' => $commercial->delivered_orders_count ?? 0,
+                'total_sales' => (float) ($commercial->total_sales ?? 0),
+                'total_commissions' => (float) ($commercial->total_commissions ?? 0),
+            ])->values(),
             'editingCommercial' => $editingCommercial,
             'formActive' => $editingCommercial !== null || $request->boolean('new') || $request->session()->has('errors'),
             'previewCommercialId' => User::previewCommercialId(),
             'defaultCommissionRate' => (float) Setting::get('commission_rate', 5),
+            'commercialView' => false,
         ]);
     }
 
@@ -118,6 +138,7 @@ class CommercialController extends Controller
                 'Commission (%)',
                 'CA vendu',
                 'Cmd. livrées',
+                'Total commissions',
             ], ';');
 
             foreach ($commercials as $commercial) {
@@ -128,9 +149,10 @@ class CommercialController extends Controller
                     $commercial->email,
                     $commercial->whatsapp ?? '',
                     $commercial->prospect_zone ?? '',
-                    $commercial->commission_rate !== null ? number_format($commercial->commission_rate, 1, ',', '') : '',
+                    number_format($commercial->effective_commission_rate ?? 0, 1, ',', ''),
                     number_format($commercial->total_sales ?? 0, 2, ',', ''),
                     $commercial->delivered_orders_count ?? 0,
+                    number_format($commercial->total_commissions ?? 0, 2, ',', ''),
                 ], ';');
             }
 
@@ -148,7 +170,7 @@ class CommercialController extends Controller
             abort(403);
         }
 
-        return $this->dashboard($user);
+        return $this->dashboard($this->commercialRowFor($user));
     }
 
     private function validateCommercial(Request $request, ?User $commercial = null): array
@@ -170,47 +192,75 @@ class CommercialController extends Controller
 
     private function commercialRows(): Collection
     {
-        return User::where('role', UserRole::Commercial)
+        return $this->commercialStatsQuery()
+            ->orderBy('name')
+            ->get()
+            ->map(fn (User $commercial) => $this->attachCommercialStats($commercial));
+    }
+
+    private function commercialRowFor(User $commercial): User
+    {
+        abort_unless($commercial->role === UserRole::Commercial, 404);
+
+        $row = $this->commercialStatsQuery()
+            ->whereKey($commercial->id)
+            ->firstOrFail();
+
+        return $this->attachCommercialStats($row);
+    }
+
+    private function commercialStatsQuery()
+    {
+        return User::query()
+            ->where('role', UserRole::Commercial)
             ->where('is_active', true)
             ->where('email', '!=', 'commercial@boutitrad.com')
             ->withCount(['commercialOrders as delivered_orders_count' => fn ($q) => $q->where('status', OrderStatus::Livree)])
-            ->orderBy('name')
-            ->get()
-            ->map(function ($commercial) {
-                $commercial->total_sales = Order::where('commercial_id', $commercial->id)
-                    ->where('status', OrderStatus::Livree)
-                    ->sum('total');
+            ->withSum(
+                ['commercialOrders as total_sales' => fn ($q) => $q->where('status', OrderStatus::Livree)],
+                'total'
+            )
+            ->withSum('commissions as total_commissions', 'amount');
+    }
 
-                return $commercial;
-            });
+    private function attachCommercialStats(User $commercial): User
+    {
+        $commercial->total_sales = (float) ($commercial->total_sales ?? 0);
+        $commercial->total_commissions = (float) ($commercial->total_commissions ?? 0);
+        $commercial->effective_commission_rate = $this->commissionService->rateForCommercial($commercial);
+
+        return $commercial;
+    }
+
+    private function deliveredOrdersFor(User $commercial): Collection
+    {
+        return Order::with('client')
+            ->where('commercial_id', $commercial->id)
+            ->where('status', OrderStatus::Livree)
+            ->latest()
+            ->get();
+    }
+
+    private function commissionsFor(User $commercial): Collection
+    {
+        return Commission::with('order')
+            ->where('user_id', $commercial->id)
+            ->latest()
+            ->get();
     }
 
     private function dashboard(User $commercial): View
     {
-        $orders = Order::with('client')
-            ->where('commercial_id', $commercial->id)
-            ->latest()
-            ->limit(10)
-            ->get();
-        $deliveredOrders = Order::with('client')
-            ->where('commercial_id', $commercial->id)
-            ->where('status', OrderStatus::Livree)
-            ->latest()
-            ->limit(15)
-            ->get();
-        $totalSales = Order::where('commercial_id', $commercial->id)->where('status', OrderStatus::Livree)->sum('total');
+        $deliveredOrders = $this->deliveredOrdersFor($commercial);
+        $totalSales = (float) $commercial->total_sales;
         $ordersCount = Order::where('commercial_id', $commercial->id)->count();
         $objectives = CommercialObjective::where('user_id', $commercial->id)->latest()->limit(3)->get();
-        $commissions = Commission::with('order')
-            ->where('user_id', $commercial->id)
-            ->latest()
-            ->limit(10)
-            ->get();
-        $totalCommissions = Commission::where('user_id', $commercial->id)->sum('amount');
-        $commissionRate = $this->commissionService->rateForCommercial($commercial);
+        $commissions = $this->commissionsFor($commercial);
+        $totalCommissions = (float) $commercial->total_commissions;
+        $commissionRate = $commercial->effective_commission_rate;
 
         return view('commercials.show', compact(
-            'commercial', 'orders', 'deliveredOrders', 'totalSales', 'ordersCount',
+            'commercial', 'deliveredOrders', 'totalSales', 'ordersCount',
             'objectives', 'commissions', 'totalCommissions', 'commissionRate'
         ));
     }

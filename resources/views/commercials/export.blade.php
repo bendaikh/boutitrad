@@ -52,9 +52,10 @@
                     <th>Email</th>
                     <th>WhatsApp</th>
                     <th>Zone prospect</th>
-                    <th>Commission (%)</th>
-                    <th>CA vendu</th>
+                    <th>Commission affectée</th>
                     <th>Cmd. livrées</th>
+                    <th>CA vendu</th>
+                    <th>Total commissions</th>
                 </tr>
             </thead>
             <tbody>
@@ -66,13 +67,14 @@
                         <td>{{ $commercial->email }}</td>
                         <td>{{ $commercial->whatsapp ?? '—' }}</td>
                         <td>{{ $commercial->prospect_zone ?? '—' }}</td>
-                        <td class="right">{{ $commercial->commission_rate !== null ? number_format($commercial->commission_rate, 1, ',', ' ') . ' %' : '—' }}</td>
-                        <td class="right">{{ number_format($commercial->total_sales ?? 0, 0, ',', ' ') }} DH</td>
+                        <td class="right">{{ number_format($commercial->effective_commission_rate ?? 0, 1, ',', ' ') }} %</td>
                         <td class="center">{{ $commercial->delivered_orders_count ?? 0 }}</td>
+                        <td class="right">{{ number_format($commercial->total_sales ?? 0, 2, ',', ' ') }} DH</td>
+                        <td class="right">{{ number_format($commercial->total_commissions ?? 0, 2, ',', ' ') }} DH</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" style="text-align: center; color: #64748b;">Aucun commercial</td>
+                        <td colspan="10" style="text-align: center; color: #64748b;">Aucun commercial</td>
                     </tr>
                 @endforelse
             </tbody>

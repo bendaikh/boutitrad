@@ -68,6 +68,12 @@
         @apply px-4 py-3 text-slate-600 dark:text-slate-400;
     }
 
+    .commercials-table .admin-table thead th,
+    .commercials-table .admin-table-cell,
+    .commercials-table .admin-table-cell-muted {
+        @apply text-center align-top;
+    }
+
     .admin-row-hover {
         @apply cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60;
     }

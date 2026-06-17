@@ -108,7 +108,7 @@
                             <x-admin.nav-sublink route="orders.index" icon="cart">Commandes</x-admin.nav-sublink>
                         @endif
                         @if($user->hasAnyPermission(['commercials.view', 'commercials.create', 'commercials.update', 'commercials.delete']))
-                            <x-admin.nav-sublink route="commercials.index" icon="briefcase">Commerciaux</x-admin.nav-sublink>
+                            <x-admin.nav-sublink route="commercials.index" icon="briefcase">{{ $user->isCommercial() ? 'Mon activité' : 'Commerciaux' }}</x-admin.nav-sublink>
                         @endif
                         @if($user->hasAnyPermission(['sales.balance.view', 'sales.balance.print']))
                             <x-admin.nav-sublink route="sales.balance" icon="money">Balance</x-admin.nav-sublink>

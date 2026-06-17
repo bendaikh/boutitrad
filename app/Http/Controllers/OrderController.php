@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMode;
+use App\Enums\ProspectionSource;
 use App\Enums\UserRole;
 use App\Models\City;
 use App\Models\Client;
@@ -166,7 +167,7 @@ class OrderController extends Controller
             'product_image' => ImageUpload::RULE,
         ]);
 
-        if ($isCommercial || $request->boolean('manual_client')) {
+        if ($request->boolean('manual_client')) {
             $validated['client_id'] = null;
         }
 
@@ -230,16 +231,43 @@ class OrderController extends Controller
 
         $city = City::findOrFail($validated['city_id']);
 
-        $client = Client::create([
+        $commercialId = $validated['commercial_id'] ?? ($user->isCommercial() ? $user->id : null);
+        $paymentMode = filled($validated['payment_mode'] ?? null)
+            ? PaymentMode::from($validated['payment_mode'])
+            : null;
+
+        $attributes = [
             'name' => $validated['client_name'],
             'phone' => $validated['client_phone'] ?? null,
             'address' => $validated['client_address'] ?? null,
             'city_id' => $city->id,
             'city' => $city->name,
-            'commercial_id' => $validated['commercial_id'] ?? $user->id,
-            'payment_mode' => $validated['payment_mode'] ?? null,
+            'commercial_id' => $commercialId,
+            'payment_mode' => $paymentMode,
+            'prospection' => ProspectionSource::Terrain,
             'is_active' => true,
-        ]);
+        ];
+
+        if (! empty($validated['client_phone'])) {
+            $client = Client::query()
+                ->where('phone', $validated['client_phone'])
+                ->first();
+
+            if ($client) {
+                $client->update([
+                    'name' => $attributes['name'],
+                    'address' => $attributes['address'],
+                    'city_id' => $attributes['city_id'],
+                    'city' => $attributes['city'],
+                    'commercial_id' => $commercialId ?? $client->commercial_id,
+                    'payment_mode' => $paymentMode ?? $client->payment_mode,
+                ]);
+
+                return $client->id;
+            }
+        }
+
+        $client = Client::create($attributes);
 
         return $client->id;
     }
@@ -340,9 +368,11 @@ class OrderController extends Controller
         return redirect()
             ->route('orders.bon', $order)
             ->with('success', $user->isCommercial()
-                ? 'Commande enregistrée. Vérifiez le récapitulatif, puis envoyez à l\'admin.'
+                ? (empty($validated['client_id'])
+                    ? 'Commande enregistrée. Le client a été ajouté à la fiche clients.'
+                    : 'Commande enregistrée. Vérifiez le récapitulatif, puis envoyez à l\'admin.')
                 : (empty($validated['client_id'])
-                    ? 'Commande créée. Le client a été enregistré automatiquement.'
+                    ? 'Commande créée. Le client a été enregistré dans la fiche clients.'
                     : 'Commande créée.'));
     }
 
