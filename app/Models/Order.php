@@ -12,7 +12,7 @@ class Order extends Model
 {
     protected $fillable = [
         'reference', 'client_id', 'commercial_id', 'livreur_id', 'delivery_partner_id', 'partner_tracking_ref', 'status',
-        'subtotal', 'discount', 'delivery_cost', 'tax', 'total', 'amount_paid', 'payment_mode', 'notes', 'internal_notes', 'shipping_remark',
+        'subtotal', 'discount', 'delivery_cost', 'tax', 'total', 'amount_paid', 'payment_mode', 'notes', 'internal_notes', 'shipping_remark', 'product_image',
         'validated_at', 'delivered_at', 'cancelled_at', 'submitted_to_admin_at', 'sent_to_partner_at', 'created_by',
     ];
 
@@ -170,20 +170,94 @@ class Order extends Model
         }
 
         if ($user->isSuperAdmin() || $user->isGestionnaireStock()) {
-            return true;
+            return false;
         }
 
         if (! $user->isCommercial()) {
             return false;
         }
 
-        return $this->commercial_id === $user->id
-            || $this->created_by === $user->id;
+        return ($this->commercial_id === $user->id || $this->created_by === $user->id)
+            && $this->status === OrderStatus::Nouvelle;
     }
 
     public function canUploadProductImage(?User $user = null): bool
     {
         return $this->canManageBonContent($user);
+    }
+
+    public function productImageUrl(): ?string
+    {
+        return $this->product_image ? '/storage/'.$this->product_image : null;
+    }
+
+    public function displayProductImageUrl(): ?string
+    {
+        if ($this->productImageUrl()) {
+            return $this->productImageUrl();
+        }
+
+        $firstItem = $this->relationLoaded('items')
+            ? $this->items->first()
+            : $this->items()->with('product')->first();
+
+        return $firstItem?->product?->imageUrl();
+    }
+
+    public function hasProductPhoto(): bool
+    {
+        if (filled($this->product_image)) {
+            return true;
+        }
+
+        $this->loadMissing('items.product');
+
+        return $this->items->contains(fn ($item) => filled($item->product?->image));
+    }
+
+    public function hasShippingRemark(): bool
+    {
+        return filled(trim((string) $this->shipping_remark));
+    }
+
+    public function clientDetailsComplete(): bool
+    {
+        $this->loadMissing('client.cityRecord');
+        $client = $this->client;
+
+        return $client
+            && filled($client->phone)
+            && filled($client->address)
+            && filled($client->deliveryCityName());
+    }
+
+    public function isReadyForAdminSubmission(): bool
+    {
+        return $this->clientDetailsComplete()
+            && $this->hasProductPhoto()
+            && $this->hasShippingRemark();
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function missingItemsBeforeAdminSubmission(): array
+    {
+        $missing = [];
+
+        if (! $this->clientDetailsComplete()) {
+            $missing[] = 'coordonnées client (téléphone, adresse, ville)';
+        }
+
+        if (! $this->hasProductPhoto()) {
+            $missing[] = 'photo produit';
+        }
+
+        if (! $this->hasShippingRemark()) {
+            $missing[] = 'remarque NB';
+        }
+
+        return $missing;
     }
 
     public function canViewBon(?User $user = null): bool

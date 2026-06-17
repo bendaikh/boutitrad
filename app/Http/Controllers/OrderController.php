@@ -139,10 +139,11 @@ class OrderController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validateOrderRequest(Request $request): array
+    private function validateOrderRequest(Request $request, bool $isCommercial = false): array
     {
         $validated = $request->validate([
             'client_id' => 'nullable|exists:clients,id',
+            'manual_client' => 'nullable|boolean',
             'client_name' => 'nullable|string|max:255',
             'client_phone' => 'nullable|string|max:50',
             'client_address' => 'nullable|string|max:500',
@@ -154,6 +155,7 @@ class OrderController extends Controller
             'payment_mode' => ['nullable', Rule::enum(PaymentMode::class)],
             'notes' => 'nullable|string',
             'internal_notes' => 'nullable|string',
+            'shipping_remark' => 'nullable|string|max:2000',
             'discount' => 'nullable|numeric|min:0',
             'delivery_cost' => 'nullable|numeric|min:0',
             'items' => 'required|array|min:1',
@@ -161,7 +163,12 @@ class OrderController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_price' => 'required|numeric|min:0',
             'submit_action' => 'nullable|in:draft,submit',
+            'product_image' => ImageUpload::RULE,
         ]);
+
+        if ($isCommercial || $request->boolean('manual_client')) {
+            $validated['client_id'] = null;
+        }
 
         if (empty($validated['client_id'])) {
             $request->validate([
@@ -174,6 +181,14 @@ class OrderController extends Controller
             $validated['client_phone'] = $request->input('client_phone');
             $validated['client_address'] = $request->input('client_address');
             $validated['city_id'] = $request->input('city_id');
+        }
+
+        if ($isCommercial && ($validated['submit_action'] ?? '') === 'submit') {
+            $request->validate([
+                'shipping_remark' => 'required|string|max:2000',
+            ]);
+            ImageUpload::assertValidUpload($request, 'product_image');
+            $request->validate(['product_image' => 'required|'.ImageUpload::RULE]);
         }
 
         return $validated;
@@ -231,16 +246,15 @@ class OrderController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $this->validateOrderRequest($request);
-
         $user = auth()->user();
+        $validated = $this->validateOrderRequest($request, $user->isCommercial());
 
         if ($user->isCommercial()) {
             $validated['commercial_id'] = $user->id;
             $validated['livreur_id'] = null;
         }
 
-        $order = DB::transaction(function () use ($validated, $user) {
+        $order = DB::transaction(function () use ($validated, $user, $request) {
             $clientId = $this->resolveClientId($validated, $user);
             $subtotal = 0;
             $items = [];
@@ -275,6 +289,8 @@ class OrderController extends Controller
                 'payment_mode' => $validated['payment_mode'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'internal_notes' => $validated['internal_notes'] ?? null,
+                'shipping_remark' => $validated['shipping_remark'] ?? null,
+                'product_image' => ImageUpload::storeFromRequest($request, 'product_image', 'order-product-images'),
                 'created_by' => auth()->id(),
             ]);
 
@@ -304,7 +320,7 @@ class OrderController extends Controller
             return $order;
         });
 
-        $submitToAdmin = ($validated['submit_action'] ?? '') === 'submit';
+        $submitToAdmin = ! $user->isCommercial() && ($validated['submit_action'] ?? '') === 'submit';
 
         if ($submitToAdmin) {
             try {
@@ -324,7 +340,7 @@ class OrderController extends Controller
         return redirect()
             ->route('orders.bon', $order)
             ->with('success', $user->isCommercial()
-                ? 'Commande enregistrée. Cliquez sur « Envoyer à l\'admin » pour la soumettre.'
+                ? 'Commande enregistrée. Vérifiez le récapitulatif, puis envoyez à l\'admin.'
                 : (empty($validated['client_id'])
                     ? 'Commande créée. Le client a été enregistré automatiquement.'
                     : 'Commande créée.'));
@@ -335,16 +351,15 @@ class OrderController extends Controller
         $this->authorizeOrder($order);
         abort_unless($order->canBeEditedInForm(), 403, 'Cette commande ne peut plus être modifiée.');
 
-        $validated = $this->validateOrderRequest($request);
-
         $user = auth()->user();
+        $validated = $this->validateOrderRequest($request, $user->isCommercial());
 
         if ($user->isCommercial()) {
             $validated['commercial_id'] = $user->id;
             $validated['livreur_id'] = null;
         }
 
-        DB::transaction(function () use ($validated, $order, $user) {
+        DB::transaction(function () use ($validated, $order, $user, $request) {
             $clientId = $this->resolveClientId($validated, $user);
             $subtotal = 0;
             $items = [];
@@ -377,7 +392,15 @@ class OrderController extends Controller
                 'payment_mode' => $validated['payment_mode'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'internal_notes' => $validated['internal_notes'] ?? null,
+                'shipping_remark' => $validated['shipping_remark'] ?? $order->shipping_remark,
             ]);
+
+            if ($path = ImageUpload::storeFromRequest($request, 'product_image', 'order-product-images')) {
+                if ($order->product_image) {
+                    Storage::disk('public')->delete($order->product_image);
+                }
+                $order->update(['product_image' => $path]);
+            }
 
             $order->items()->delete();
 
@@ -398,9 +421,13 @@ class OrderController extends Controller
             }
         });
 
+        $message = $user->isCommercial()
+            ? 'Commande mise à jour. Vérifiez le récapitulatif avant envoi.'
+            : 'Commande mise à jour.';
+
         return redirect()
             ->route('orders.bon', $order)
-            ->with('success', 'Commande mise à jour.');
+            ->with('success', $message);
     }
 
     public function destroy(Order $order): RedirectResponse
@@ -595,6 +622,20 @@ class OrderController extends Controller
         $product->update([
             'image' => ImageUpload::storeFromRequest($request, 'product_image', 'product-images'),
         ]);
+
+        if ($path = $product->image) {
+            if ($order->product_image) {
+                Storage::disk('public')->delete($order->product_image);
+            }
+            $order->update(['product_image' => $path]);
+        }
+
+        if ($path = ImageUpload::storeFromRequest($request, 'product_image', 'order-product-images')) {
+            if ($order->product_image) {
+                Storage::disk('public')->delete($order->product_image);
+            }
+            $order->update(['product_image' => $path]);
+        }
 
         $redirectRoute = $request->input('return_to') === 'print'
             ? route('orders.delivery-note', $order)

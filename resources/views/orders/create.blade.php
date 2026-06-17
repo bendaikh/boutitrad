@@ -3,6 +3,7 @@
     <form
         method="POST"
         action="{{ $editing ? route('orders.update', $order) : route('orders.store') }}"
+        enctype="multipart/form-data"
         class="admin-form-shell admin-order-create-form max-w-full mb-4 sm:mb-0"
         x-data="orderForm()"
     >
@@ -12,6 +13,19 @@
         <div class="admin-order-create-body">
         {{-- Barre 1 --}}
         <div class="admin-order-form-bar">
+            @if($isCommercial && ! $editing)
+                <label class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 mb-2 cursor-pointer select-none">
+                    <input
+                        type="checkbox"
+                        name="manual_client"
+                        value="1"
+                        x-model="manualClient"
+                        @change="onManualClientToggle()"
+                        class="rounded border-slate-300 dark:border-slate-600 text-brand-600 focus:ring-brand-500"
+                    >
+                    Saisie manuelle du client (nom, téléphone, adresse)
+                </label>
+            @endif
             <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-x-2 gap-y-2">
                 <div>
                     <label for="order_date" class="admin-order-form-label">Date commande</label>
@@ -32,8 +46,8 @@
                         class="admin-order-form-readonly font-mono text-xs"
                     >
                 </div>
-                <div>
-                    <label for="client_id" class="admin-order-form-label">Client *</label>
+                <div x-show="!manualClient" x-cloak>
+                    <label for="client_id" class="admin-order-form-label">Client existant</label>
                     <select
                         id="client_id"
                         name="client_id"
@@ -41,7 +55,7 @@
                         @change="onClientChange()"
                         class="admin-order-form-input font-mono text-xs"
                     >
-                        <option value="">+ Nouveau client</option>
+                        <option value="">— Choisir —</option>
                         @foreach($clients as $client)
                             <option value="{{ $client->id }}" @selected(old('client_id', $order?->client_id) == $client->id)>
                                 {{ $client->formattedId() }} — {{ $client->name }}
@@ -56,9 +70,9 @@
                         type="text"
                         name="client_name"
                         x-model="clientName"
-                        :readonly="!isNewClient"
-                        :required="isNewClient"
-                        :class="isNewClient ? 'admin-order-form-input' : 'admin-order-form-readonly'"
+                        :readonly="!canEditClientFields"
+                        :required="canEditClientFields"
+                        :class="canEditClientFields ? 'admin-order-form-input' : 'admin-order-form-readonly'"
                     >
                     @error('client_name')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
                 </div>
@@ -140,8 +154,9 @@
                         id="client_phone"
                         name="client_phone"
                         x-model="clientPhone"
-                        :required="isNewClient || !clientId"
-                        class="admin-order-form-input"
+                        :readonly="!canEditClientFields"
+                        :required="canEditClientFields || isNewClient || !clientId"
+                        :class="canEditClientFields ? 'admin-order-form-input' : 'admin-order-form-readonly'"
                         placeholder="06..."
                     >
                     @error('client_phone')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
@@ -176,7 +191,7 @@
                         <label for="client_address" class="admin-order-form-label mb-0">Adresse livraison *</label>
                         @if($isCommercial)
                             <label
-                                x-show="!isNewClient && clientId"
+                                x-show="!manualClient && !isNewClient && clientId"
                                 x-cloak
                                 class="inline-flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 cursor-pointer select-none"
                             >
@@ -344,13 +359,78 @@
             @error('items')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
             @error('items.*.product_id')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
         </div>
+
+        @if($isCommercial || $editing)
+        <div class="admin-order-form-bar">
+            <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">Photo produit &amp; NB</h2>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">À compléter avant envoi à l'admin. Vous pourrez tout vérifier sur l'écran suivant.</p>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div>
+                    <label for="product_image" class="admin-order-form-label">Photo du produit</label>
+                    <div class="flex flex-col sm:flex-row gap-4 items-start">
+                        <div class="shrink-0 w-full sm:w-52">
+                            <div class="aspect-square w-full max-w-[13rem] rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 overflow-hidden flex items-center justify-center">
+                                <img
+                                    x-show="productImagePreview"
+                                    x-cloak
+                                    :src="productImagePreview"
+                                    alt="Aperçu produit"
+                                    class="w-full h-full object-cover"
+                                >
+                                @if($editing && $order?->productImageUrl())
+                                    <img
+                                        x-show="!productImagePreview && hasExistingPhoto"
+                                        x-cloak
+                                        src="{{ $order->productImageUrl() }}"
+                                        alt="Photo actuelle"
+                                        class="w-full h-full object-cover"
+                                    >
+                                @endif
+                                <div x-show="!productImagePreview && !hasExistingPhoto" class="text-center px-4 py-6 text-slate-400">
+                                    <svg class="w-10 h-10 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    <p class="text-[11px] leading-snug">L'aperçu s'affiche ici après sélection du fichier</p>
+                                </div>
+                            </div>
+                            <p x-show="productImagePreview" x-cloak class="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 mt-2">Aperçu de la photo sélectionnée</p>
+                            @if($editing && $order?->productImageUrl())
+                                <p x-show="!productImagePreview" class="text-[10px] text-slate-500 dark:text-slate-400 mt-2">Photo enregistrée — choisissez un fichier pour la remplacer.</p>
+                            @endif
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <input
+                                type="file"
+                                id="product_image"
+                                name="product_image"
+                                accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                                class="block w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-brand-50 file:text-brand-700"
+                                @change="previewProductImage($event)"
+                            >
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-2">JPG, PNG ou WebP — max. 2 Mo</p>
+                        </div>
+                    </div>
+                    @error('product_image')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label for="shipping_remark" class="admin-order-form-label">NB — Remarque</label>
+                    <textarea
+                        id="shipping_remark"
+                        name="shipping_remark"
+                        rows="4"
+                        placeholder="Ex. taille, couleur, instructions livraison, fragilité…"
+                        class="admin-order-form-input w-full"
+                    >{{ old('shipping_remark', $order?->shipping_remark ?? '') }}</textarea>
+                    @error('shipping_remark')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
+                </div>
+            </div>
+        </div>
+        @endif
         </div>
 
         <div class="admin-order-form-actions">
             @if($isCommercial && ! $editing)
-                <button type="submit" name="submit_action" value="submit" class="btn-primary bg-emerald-600 hover:bg-emerald-700 border-emerald-600">Créer et envoyer à l'admin</button>
-                <button type="submit" name="submit_action" value="draft" class="btn-secondary">Enregistrer brouillon</button>
+                <button type="submit" name="submit_action" value="draft" class="btn-primary">Enregistrer et vérifier</button>
                 <a href="{{ route('orders.index') }}" class="btn-secondary">Annuler</a>
+                <p class="w-full text-[11px] text-slate-500 dark:text-slate-400 mt-1">Étape suivante : récapitulatif de la commande, puis envoi à l'admin.</p>
             @elseif($editing)
                 <button type="submit" class="btn-primary">Enregistrer les modifications</button>
                 <a href="{{ route('orders.index') }}" class="btn-secondary">Annuler</a>
@@ -375,6 +455,8 @@
         const oldClientId = @json(old('client_id', $order?->client_id ?? ''));
         const isCommercialUser = @json($isCommercial);
         const editClientAddressDefault = @json((bool) old('update_client_address', false));
+        const manualClientDefault = @json((bool) old('manual_client', $isCommercial && ! $editing && ! old('client_id')));
+        const hasExistingPhoto = @json((bool) ($editing && $order?->productImageUrl()));
 
         function buildItem(data = {}) {
             const product = products.find(p => String(p.id) === String(data.product_id || ''));
@@ -389,18 +471,22 @@
         }
 
         return {
-            clientId: oldClientId ? String(oldClientId) : '',
-            isNewClient: ! oldClientId,
+            manualClient: manualClientDefault,
+            clientId: manualClientDefault ? '' : (oldClientId ? String(oldClientId) : ''),
+            isNewClient: manualClientDefault || ! oldClientId,
             clientName: oldClientName,
             clientPhone: oldClientPhone,
             clientAddress: oldClientAddress,
             editClientAddress: editClientAddressDefault,
-            get canEditClientAddress() {
+            get canEditClientFields() {
                 if (! isCommercialUser) {
                     return true;
                 }
 
-                return this.isNewClient || ! this.clientId || this.editClientAddress;
+                return this.manualClient || this.isNewClient || ! this.clientId || this.editClientAddress;
+            },
+            get canEditClientAddress() {
+                return this.canEditClientFields;
             },
             cityId: oldCityId ? String(oldCityId) : '',
             cityQuery: '',
@@ -410,7 +496,21 @@
             paymentMode: @json(old('payment_mode', $order?->payment_mode?->value ?? '')),
             deliveryCost: @json(old('delivery_cost', $order?->delivery_cost ?? $defaultDeliveryCost)),
             showStock: true,
+            productImagePreview: null,
+            hasExistingPhoto: hasExistingPhoto,
             items: initialItems.length ? initialItems.map(item => buildItem(item)) : [buildItem()],
+            previewProductImage(event) {
+                const file = event.target.files?.[0];
+                if (this.productImagePreview) {
+                    URL.revokeObjectURL(this.productImagePreview);
+                    this.productImagePreview = null;
+                }
+                if (! file || ! file.type.startsWith('image/')) {
+                    return;
+                }
+                this.productImagePreview = URL.createObjectURL(file);
+                this.hasExistingPhoto = false;
+            },
             get cityMatches() {
                 const q = this.normalizeCitySearch(this.cityQuery);
                 if (q.length < 2) {
@@ -506,6 +606,16 @@
                     return;
                 }
                 this.cityId = '';
+            },
+            onManualClientToggle() {
+                if (this.manualClient) {
+                    this.clientId = '';
+                    this.isNewClient = true;
+                    this.editClientAddress = false;
+                    return;
+                }
+
+                this.onClientChange();
             },
             onEditAddressToggle() {
                 if (this.editClientAddress) {

@@ -29,6 +29,16 @@ class OrderWorkflowService
             throw new InvalidArgumentException('Seules les commandes nouvelles peuvent être envoyées à l\'admin.');
         }
 
+        $order->loadMissing('items.product');
+
+        if (! $order->isReadyForAdminSubmission()) {
+            $missing = $order->missingItemsBeforeAdminSubmission();
+
+            throw new InvalidArgumentException(
+                'Complétez la commande avant envoi : '.implode(', ', $missing).'.'
+            );
+        }
+
         $updated = $this->transition($order, $user, OrderStatus::EnCours, [
             'submitted_to_admin_at' => now(),
         ], 'Commande envoyée à l\'admin pour validation');
