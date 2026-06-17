@@ -23,7 +23,7 @@ class DeliveryController extends Controller
         return view('deliveries.partners', [
             'partners' => DeliveryPartner::query()->orderByDesc('is_default')->orderBy('name')->get(),
             'cathedis' => $cathedis->connectionStatus(),
-            'cathedisUsername' => CathedisConfig::username(),
+            'cathedisConfig' => CathedisConfig::formValues(),
         ]);
     }
 
@@ -54,7 +54,6 @@ class DeliveryController extends Controller
 
     public function syncCathedisCities(CathedisApiService $cathedis): RedirectResponse
     {
-        CathedisConfig::syncFromEnv();
         $count = $cathedis->syncCities();
 
         return back()->with('success', "Villes Cathedis synchronisées ({$count} villes disponibles).");
@@ -62,7 +61,6 @@ class DeliveryController extends Controller
 
     public function testCathedisConnection(CathedisApiService $cathedis): RedirectResponse
     {
-        CathedisConfig::syncFromEnv();
         $result = $cathedis->testConnection();
 
         return back()->with(
@@ -78,6 +76,17 @@ class DeliveryController extends Controller
             'cathedis_username' => ['nullable', 'email', 'max:150'],
             'cathedis_password' => ['nullable', 'string', 'max:255'],
             'cathedis_api_token' => ['nullable', 'string', 'max:500'],
+            'cathedis_store_id' => ['nullable', 'integer', 'min:1'],
+            'cathedis_default_sector_id' => ['nullable', 'integer', 'min:1'],
+            'cathedis_default_sector_name' => ['nullable', 'string', 'max:100'],
+            'cathedis_payment_type_id' => ['nullable', 'integer', 'min:1'],
+            'cathedis_delivery_type_id' => ['nullable', 'integer', 'min:1'],
+            'cathedis_delivery_status_id' => ['nullable', 'integer', 'min:1'],
+            'cathedis_delivery_status_code' => ['nullable', 'string', 'max:100'],
+            'cathedis_allow_opening' => ['nullable', 'boolean'],
+            'cathedis_range_weight' => ['nullable', 'string', 'max:50'],
+            'cathedis_shipping_method' => ['nullable', 'string', 'max:50'],
+            'cathedis_type_delivery' => ['nullable', 'string', 'max:50'],
         ]);
 
         CathedisConfig::persist([
@@ -85,9 +94,20 @@ class DeliveryController extends Controller
             'username' => $validated['cathedis_username'] ?? null,
             'password' => $validated['cathedis_password'] ?? null,
             'api_token' => $validated['cathedis_api_token'] ?? null,
+            'store_id' => $validated['cathedis_store_id'] ?? null,
+            'default_sector_id' => $validated['cathedis_default_sector_id'] ?? null,
+            'default_sector_name' => $validated['cathedis_default_sector_name'] ?? null,
+            'payment_type_id' => $validated['cathedis_payment_type_id'] ?? null,
+            'delivery_type_id' => $validated['cathedis_delivery_type_id'] ?? null,
+            'delivery_status_id' => $validated['cathedis_delivery_status_id'] ?? null,
+            'delivery_status_code' => $validated['cathedis_delivery_status_code'] ?? null,
+            'allow_opening' => $request->boolean('cathedis_allow_opening'),
+            'range_weight' => $validated['cathedis_range_weight'] ?? null,
+            'shipping_method' => $validated['cathedis_shipping_method'] ?? null,
+            'type_delivery' => $validated['cathedis_type_delivery'] ?? null,
         ]);
 
-        return back()->with('success', 'Identifiants Cathedis enregistrés. Cliquez sur « Tester la connexion ».');
+        return back()->with('success', 'Configuration Cathedis enregistrée. Testez la connexion puis synchronisez les villes.');
     }
 
     public function transport(Request $request): View

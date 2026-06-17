@@ -10,21 +10,15 @@ class CathedisConfig
     public static function enabled(): bool
     {
         $fromDb = Setting::get('cathedis_enabled');
-        if ($fromDb !== null && $fromDb !== '') {
-            return filter_var($fromDb, FILTER_VALIDATE_BOOLEAN);
-        }
 
-        return filter_var(config('cathedis.enabled'), FILTER_VALIDATE_BOOLEAN);
+        return $fromDb !== null && $fromDb !== ''
+            ? filter_var($fromDb, FILTER_VALIDATE_BOOLEAN)
+            : false;
     }
 
     public static function username(): ?string
     {
-        $fromDb = Setting::get('cathedis_username');
-        if (filled($fromDb)) {
-            return (string) $fromDb;
-        }
-
-        $value = config('cathedis.username');
+        $value = Setting::get('cathedis_username');
 
         return filled($value) ? (string) $value : null;
     }
@@ -32,27 +26,20 @@ class CathedisConfig
     public static function password(): ?string
     {
         $stored = Setting::get('cathedis_password');
-        if (filled($stored)) {
-            try {
-                return Crypt::decryptString((string) $stored);
-            } catch (\Throwable) {
-                return (string) $stored;
-            }
+        if (! filled($stored)) {
+            return null;
         }
 
-        $value = config('cathedis.password');
-
-        return filled($value) ? (string) $value : null;
+        try {
+            return Crypt::decryptString((string) $stored);
+        } catch (\Throwable) {
+            return (string) $stored;
+        }
     }
 
     public static function apiToken(): ?string
     {
-        $fromDb = Setting::get('cathedis_api_token');
-        if (filled($fromDb)) {
-            return (string) $fromDb;
-        }
-
-        $value = config('cathedis.api_token');
+        $value = Setting::get('cathedis_api_token');
 
         return filled($value) ? (string) $value : null;
     }
@@ -63,37 +50,126 @@ class CathedisConfig
             || (filled(self::username()) && filled(self::password()));
     }
 
-    public static function storeId(): int
+    public static function storeId(): ?int
     {
-        $fromDb = Setting::get('cathedis_store_id');
-        if (filled($fromDb) && is_numeric($fromDb)) {
-            return (int) $fromDb;
-        }
+        $value = Setting::get('cathedis_store_id');
 
-        return (int) config('cathedis.store_id', 23055);
+        return filled($value) && is_numeric($value) ? (int) $value : null;
     }
 
-    public static function syncFromEnv(): void
+    public static function defaultSectorId(): ?int
     {
-        if (filter_var(config('cathedis.enabled'), FILTER_VALIDATE_BOOLEAN)) {
-            Setting::set('cathedis_enabled', '1', 'cathedis');
-        }
+        $value = Setting::get('cathedis_default_sector_id');
 
-        if (filled(config('cathedis.username'))) {
-            Setting::set('cathedis_username', (string) config('cathedis.username'), 'cathedis');
-        }
+        return filled($value) && is_numeric($value) ? (int) $value : null;
+    }
 
-        if (filled(config('cathedis.password'))) {
-            Setting::set('cathedis_password', Crypt::encryptString((string) config('cathedis.password')), 'cathedis');
-        }
+    public static function defaultSectorName(): ?string
+    {
+        $value = Setting::get('cathedis_default_sector_name');
 
-        if (filled(config('cathedis.api_token'))) {
-            Setting::set('cathedis_api_token', (string) config('cathedis.api_token'), 'cathedis');
-        }
+        return filled($value) ? (string) $value : null;
+    }
+
+    public static function paymentTypeId(): int
+    {
+        return (int) (Setting::get('cathedis_payment_type_id') ?: 1);
+    }
+
+    public static function deliveryTypeId(): int
+    {
+        return (int) (Setting::get('cathedis_delivery_type_id') ?: 1);
+    }
+
+    public static function deliveryStatusId(): int
+    {
+        return (int) (Setting::get('cathedis_delivery_status_id') ?: 1);
+    }
+
+    public static function deliveryStatusCode(): string
+    {
+        return (string) (Setting::get('cathedis_delivery_status_code') ?: 'En Attente Ramassage');
+    }
+
+    public static function allowOpening(): bool
+    {
+        return filter_var(Setting::get('cathedis_allow_opening'), FILTER_VALIDATE_BOOLEAN);
+    }
+
+    public static function rangeWeight(): string
+    {
+        return (string) (Setting::get('cathedis_range_weight') ?: 'ONE_FIVE');
+    }
+
+    public static function shippingMethod(): string
+    {
+        return (string) (Setting::get('cathedis_shipping_method') ?: 'LAD');
+    }
+
+    public static function typeDelivery(): string
+    {
+        return (string) (Setting::get('cathedis_type_delivery') ?: 'NORMAL');
+    }
+
+    public static function isDispatchReady(): bool
+    {
+        return self::enabled()
+            && self::isConfigured()
+            && self::storeId() !== null
+            && self::defaultSectorId() !== null
+            && filled(self::defaultSectorName());
     }
 
     /**
-     * @param  array{username?: ?string, password?: ?string, api_token?: ?string, enabled?: bool}  $data
+     * @return list<string>
+     */
+    public static function missingDispatchRequirements(): array
+    {
+        $missing = [];
+
+        if (! self::enabled()) {
+            $missing[] = 'API Cathedis non activée';
+        }
+
+        if (! self::isConfigured()) {
+            $missing[] = 'Identifiants Cathedis (email + mot de passe ou token)';
+        }
+
+        if (self::storeId() === null) {
+            $missing[] = 'ID magasin Cathedis';
+        }
+
+        if (self::defaultSectorId() === null || ! filled(self::defaultSectorName())) {
+            $missing[] = 'Secteur par défaut (ID + nom)';
+        }
+
+        return $missing;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function formValues(): array
+    {
+        return [
+            'enabled' => self::enabled(),
+            'username' => self::username(),
+            'store_id' => self::storeId(),
+            'default_sector_id' => self::defaultSectorId(),
+            'default_sector_name' => self::defaultSectorName(),
+            'payment_type_id' => self::paymentTypeId(),
+            'delivery_type_id' => self::deliveryTypeId(),
+            'delivery_status_id' => self::deliveryStatusId(),
+            'delivery_status_code' => self::deliveryStatusCode(),
+            'allow_opening' => self::allowOpening(),
+            'range_weight' => self::rangeWeight(),
+            'shipping_method' => self::shippingMethod(),
+            'type_delivery' => self::typeDelivery(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
      */
     public static function persist(array $data): void
     {
@@ -111,6 +187,27 @@ class CathedisConfig
 
         if (array_key_exists('api_token', $data) && filled($data['api_token'])) {
             Setting::set('cathedis_api_token', (string) $data['api_token'], 'cathedis');
+        }
+
+        foreach ([
+            'store_id' => 'cathedis_store_id',
+            'default_sector_id' => 'cathedis_default_sector_id',
+            'default_sector_name' => 'cathedis_default_sector_name',
+            'payment_type_id' => 'cathedis_payment_type_id',
+            'delivery_type_id' => 'cathedis_delivery_type_id',
+            'delivery_status_id' => 'cathedis_delivery_status_id',
+            'delivery_status_code' => 'cathedis_delivery_status_code',
+            'range_weight' => 'cathedis_range_weight',
+            'shipping_method' => 'cathedis_shipping_method',
+            'type_delivery' => 'cathedis_type_delivery',
+        ] as $key => $settingKey) {
+            if (array_key_exists($key, $data) && filled($data[$key])) {
+                Setting::set($settingKey, (string) $data[$key], 'cathedis');
+            }
+        }
+
+        if (array_key_exists('allow_opening', $data)) {
+            Setting::set('cathedis_allow_opening', $data['allow_opening'] ? '1' : '0', 'cathedis');
         }
     }
 }

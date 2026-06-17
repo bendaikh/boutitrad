@@ -4,20 +4,17 @@ namespace App\Console\Commands;
 
 use App\Models\DeliveryPartner;
 use App\Services\CathedisApiService;
-use App\Support\CathedisConfig;
 use Illuminate\Console\Command;
 
 class InstallCathedisCommand extends Command
 {
     protected $signature = 'cathedis:install';
 
-    protected $description = 'Synchronise la config Cathedis (.env → base) et vérifie la connexion';
+    protected $description = 'Crée le partenaire Cathedis et vérifie la connexion (config manuelle requise dans l\'admin)';
 
     public function handle(CathedisApiService $api): int
     {
         $this->call('config:clear');
-
-        CathedisConfig::syncFromEnv();
 
         DeliveryPartner::firstOrCreate(['code' => 'cathedis'], [
             'name' => 'Cathedis',
@@ -28,7 +25,8 @@ class InstallCathedisCommand extends Command
             'is_default' => true,
         ]);
 
-        $this->info('Configuration Cathedis enregistrée en base.');
+        $this->info('Partenaire Cathedis prêt.');
+        $this->line('Configurez les identifiants et paramètres dans Livraison > Partenaires.');
 
         return $this->call('cathedis:test');
     }

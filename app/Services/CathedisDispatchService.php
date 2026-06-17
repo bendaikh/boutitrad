@@ -26,7 +26,13 @@ class CathedisDispatchService
 
         if (! CathedisConfig::enabled() || ! CathedisConfig::isConfigured()) {
             throw new CathedisDispatchException(
-                'API Cathedis non configurée. Enregistrez les identifiants dans Livraison > Partenaires.'
+                'API Cathedis non configurée. Renseignez les identifiants dans Livraison > Partenaires.'
+            );
+        }
+
+        if (! CathedisConfig::isDispatchReady()) {
+            throw new CathedisDispatchException(
+                'Configuration Cathedis incomplète : '.implode(', ', CathedisConfig::missingDispatchRequirements()).'.'
             );
         }
 
@@ -103,24 +109,24 @@ class CathedisDispatchService
                 'fullName' => $cityName,
             ],
             'sector' => [
-                'id' => (int) config('cathedis.default_sector_id', 2766),
-                'name' => config('cathedis.default_sector_name', 'Autre'),
+                'id' => CathedisConfig::defaultSectorId(),
+                'name' => CathedisConfig::defaultSectorName(),
             ],
             'customer' => ['id' => CathedisConfig::storeId()],
             'recipient' => ['id' => $recipientId],
-            'paymentType' => ['id' => (int) config('cathedis.payment_type_id', 1)],
-            'deliveryType' => ['id' => (int) config('cathedis.delivery_type_id', 1)],
+            'paymentType' => ['id' => CathedisConfig::paymentTypeId()],
+            'deliveryType' => ['id' => CathedisConfig::deliveryTypeId()],
             'deliveryStatus' => [
-                'id' => (int) config('cathedis.delivery_status_id', 1),
-                'code' => config('cathedis.delivery_status_code', 'En Attente Ramassage'),
+                'id' => CathedisConfig::deliveryStatusId(),
+                'code' => CathedisConfig::deliveryStatusCode(),
             ],
-            'allowOpening' => (bool) config('cathedis.allow_opening', false),
+            'allowOpening' => CathedisConfig::allowOpening(),
             'nomOrder' => $order->reference,
             'comment' => $order->shipping_remark ?: $order->notes,
             'packageCount' => 1,
-            'rangeWeight' => config('cathedis.range_weight', 'ONE_FIVE'),
-            'shippingMethod' => config('cathedis.shipping_method', 'LAD'),
-            'typeDelivery' => config('cathedis.type_delivery', 'NORMAL'),
+            'rangeWeight' => CathedisConfig::rangeWeight(),
+            'shippingMethod' => CathedisConfig::shippingMethod(),
+            'typeDelivery' => CathedisConfig::typeDelivery(),
         ];
     }
 
@@ -144,8 +150,8 @@ class CathedisDispatchService
                 'fullName' => $cityName,
             ],
             'sector' => [
-                'id' => (int) config('cathedis.default_sector_id', 2766),
-                'name' => config('cathedis.default_sector_name', 'Autre'),
+                'id' => CathedisConfig::defaultSectorId(),
+                'name' => CathedisConfig::defaultSectorName(),
             ],
         ];
 

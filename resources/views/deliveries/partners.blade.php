@@ -2,7 +2,7 @@
     <div class="space-y-5">
         <div class="admin-card p-6">
             <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">Intégration Cathedis</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm mb-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-sm mb-4">
                 <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
                     <p class="text-xs text-slate-500">API activée</p>
                     <p class="font-semibold {{ ($cathedis['enabled'] ?? false) ? 'text-emerald-600' : 'text-amber-600' }}">{{ ($cathedis['enabled'] ?? false) ? 'Oui' : 'Non' }}</p>
@@ -15,6 +15,10 @@
                     @endif
                 </div>
                 <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                    <p class="text-xs text-slate-500">Envoi commandes prêt</p>
+                    <p class="font-semibold {{ ($cathedis['dispatch_ready'] ?? false) ? 'text-emerald-600' : 'text-amber-600' }}">{{ ($cathedis['dispatch_ready'] ?? false) ? 'Oui' : 'Non' }}</p>
+                </div>
+                <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
                     <p class="text-xs text-slate-500">Villes en système</p>
                     <p class="font-semibold">{{ $cathedis['cities_count'] ?? 0 }}</p>
                 </div>
@@ -23,6 +27,16 @@
                     <p class="font-mono text-xs break-all">{{ $cathedis['api_url'] ?? '—' }}</p>
                 </div>
             </div>
+            @if(!empty($cathedis['missing']))
+                <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200">
+                    <p class="font-medium mb-1">Configuration manuelle requise</p>
+                    <ul class="list-disc list-inside text-xs space-y-0.5">
+                        @foreach($cathedis['missing'] as $item)
+                            <li>{{ $item }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
             @if(auth()->user()->isSuperAdmin())
                 <div class="flex flex-wrap gap-2">
                     <form method="POST" action="{{ route('deliveries.cathedis.sync-cities') }}">
@@ -35,30 +49,93 @@
                     </form>
                 </div>
 
-                <div class="mt-4 rounded-lg border border-slate-200 dark:border-slate-700 p-4 max-w-xl">
-                    <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Identifiants Cathedis</h3>
+                <div class="mt-4 rounded-lg border border-slate-200 dark:border-slate-700 p-4 max-w-2xl">
+                    <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Configuration Cathedis (manuelle)</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                        Si le test échoue malgré un .env correct, enregistrez ici les identifiants (stockés en base, prioritaires sur le cache config).
+                        Chaque compte Cathedis a ses propres identifiants et paramètres. Renseignez-les ici — rien n'est prérempli automatiquement depuis le <code class="text-xs">.env</code>.
                     </p>
-                    <form method="POST" action="{{ route('deliveries.cathedis.config') }}" class="space-y-3">
+                    <form method="POST" action="{{ route('deliveries.cathedis.config') }}" class="space-y-4">
                         @csrf
                         <label class="flex items-center gap-2 text-sm">
-                            <input type="checkbox" name="cathedis_enabled" value="1" class="rounded border-slate-300 text-brand-600" @checked($cathedis['enabled'] ?? false)>
+                            <input type="checkbox" name="cathedis_enabled" value="1" class="rounded border-slate-300 text-brand-600" @checked(old('cathedis_enabled', $cathedisConfig['enabled'] ?? false))>
                             API Cathedis activée
                         </label>
-                        <div>
-                            <label class="block text-xs font-medium mb-1">Email / identifiant</label>
-                            <input type="email" name="cathedis_username" value="{{ old('cathedis_username', $cathedisUsername ?? '') }}" class="form-input w-full text-sm" placeholder="compte@cathedis.delivery">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium mb-1">Mot de passe</label>
-                            <input type="password" name="cathedis_password" class="form-input w-full text-sm" placeholder="Laisser vide pour conserver l'actuel">
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium mb-1">Email / identifiant</label>
+                                <input type="email" name="cathedis_username" value="{{ old('cathedis_username', $cathedisConfig['username'] ?? '') }}" class="form-input w-full text-sm" placeholder="compte@cathedis.delivery">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium mb-1">Mot de passe</label>
+                                <input type="password" name="cathedis_password" class="form-input w-full text-sm" placeholder="Laisser vide pour conserver l'actuel">
+                            </div>
                         </div>
                         <div>
                             <label class="block text-xs font-medium mb-1">Token API (optionnel)</label>
                             <input type="password" name="cathedis_api_token" class="form-input w-full text-sm" placeholder="Uniquement si Cathedis vous a fourni un token">
                         </div>
-                        <button type="submit" class="px-4 py-2 btn-dark text-sm">Enregistrer les identifiants</button>
+
+                        <div class="border-t border-slate-200 dark:border-slate-700 pt-3">
+                            <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-2">Paramètres d'envoi (spécifiques à votre compte)</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">ID magasin Cathedis</label>
+                                    <input type="number" name="cathedis_store_id" value="{{ old('cathedis_store_id', $cathedisConfig['store_id'] ?? '') }}" class="form-input w-full text-sm" placeholder="ex. 23055" min="1">
+                                    <p class="text-xs text-slate-500 mt-1">Visible dans Cathedis → votre magasin / store.</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">ID secteur par défaut</label>
+                                    <input type="number" name="cathedis_default_sector_id" value="{{ old('cathedis_default_sector_id', $cathedisConfig['default_sector_id'] ?? '') }}" class="form-input w-full text-sm" placeholder="ex. 2766" min="1">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">Nom secteur par défaut</label>
+                                    <input type="text" name="cathedis_default_sector_name" value="{{ old('cathedis_default_sector_name', $cathedisConfig['default_sector_name'] ?? '') }}" class="form-input w-full text-sm" placeholder="ex. Autre">
+                                </div>
+                                <div>
+                                    <label class="flex items-center gap-2 text-sm mt-5">
+                                        <input type="checkbox" name="cathedis_allow_opening" value="1" class="rounded border-slate-300 text-brand-600" @checked(old('cathedis_allow_opening', $cathedisConfig['allow_opening'] ?? false))>
+                                        Autoriser l'ouverture du colis
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <details class="text-sm">
+                            <summary class="cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-300">Options avancées (laisser par défaut sauf indication Cathedis)</summary>
+                            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">Type paiement (ID)</label>
+                                    <input type="number" name="cathedis_payment_type_id" value="{{ old('cathedis_payment_type_id', $cathedisConfig['payment_type_id'] ?? 1) }}" class="form-input w-full text-sm" min="1">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">Type livraison (ID)</label>
+                                    <input type="number" name="cathedis_delivery_type_id" value="{{ old('cathedis_delivery_type_id', $cathedisConfig['delivery_type_id'] ?? 1) }}" class="form-input w-full text-sm" min="1">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">Statut initial (ID)</label>
+                                    <input type="number" name="cathedis_delivery_status_id" value="{{ old('cathedis_delivery_status_id', $cathedisConfig['delivery_status_id'] ?? 1) }}" class="form-input w-full text-sm" min="1">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">Statut initial (code)</label>
+                                    <input type="text" name="cathedis_delivery_status_code" value="{{ old('cathedis_delivery_status_code', $cathedisConfig['delivery_status_code'] ?? 'En Attente Ramassage') }}" class="form-input w-full text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">Poids</label>
+                                    <input type="text" name="cathedis_range_weight" value="{{ old('cathedis_range_weight', $cathedisConfig['range_weight'] ?? 'ONE_FIVE') }}" class="form-input w-full text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">Méthode expédition</label>
+                                    <input type="text" name="cathedis_shipping_method" value="{{ old('cathedis_shipping_method', $cathedisConfig['shipping_method'] ?? 'LAD') }}" class="form-input w-full text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">Type colis</label>
+                                    <input type="text" name="cathedis_type_delivery" value="{{ old('cathedis_type_delivery', $cathedisConfig['type_delivery'] ?? 'NORMAL') }}" class="form-input w-full text-sm">
+                                </div>
+                            </div>
+                        </details>
+
+                        <button type="submit" class="px-4 py-2 btn-dark text-sm">Enregistrer la configuration</button>
                     </form>
                 </div>
             @endif
@@ -154,10 +231,8 @@
                     <button type="submit" class="px-4 py-2 btn-dark text-sm">Enregistrer</button>
                 </form>
                 <p class="mt-4 text-xs text-slate-500 dark:text-slate-400">
-                    API Cathedis : dans <code class="text-xs">.env</code>, mettez <code class="text-xs">CATHEDIS_ENABLED=true</code> et vos identifiants de connexion
-                    (<code class="text-xs">CATHEDIS_USERNAME</code> + <code class="text-xs">CATHEDIS_PASSWORD</code> — les mêmes que sur
-                    <a href="https://api.cathedis.delivery/" target="_blank" rel="noopener" class="underline">api.cathedis.delivery</a>).
-                    Un token API (<code class="text-xs">CATHEDIS_API_TOKEN</code>) n'est requis que si Cathedis vous en a fourni un.
+                    La configuration du compte Cathedis (identifiants, magasin, secteur) se fait dans le formulaire ci-dessus.
+                    L'URL API technique peut rester <code class="text-xs">https://api.cathedis.delivery</code> sauf indication contraire.
                 </p>
             </div>
         @endif

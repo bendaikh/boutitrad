@@ -31,6 +31,8 @@ class CathedisApiService
         return [
             'enabled' => $enabled,
             'configured' => $configured,
+            'dispatch_ready' => CathedisConfig::isDispatchReady(),
+            'missing' => CathedisConfig::missingDispatchRequirements(),
             'auth_mode' => $authMode,
             'api_url' => $apiUrl,
             'partner' => $partner?->name,
@@ -41,7 +43,6 @@ class CathedisApiService
 
     public function testConnection(?DeliveryPartner $partner = null): array
     {
-        CathedisConfig::syncFromEnv();
         $partner ??= $this->resolvePartner();
         $status = $this->connectionStatus($partner);
 
@@ -59,7 +60,7 @@ class CathedisApiService
             return [
                 ...$status,
                 'ok' => false,
-                'message' => 'Connexion Cathedis refusée. Vérifiez CATHEDIS_USERNAME et CATHEDIS_PASSWORD (même identifiants que https://api.cathedis.delivery).',
+                'message' => 'Connexion Cathedis refusée. Vérifiez l\'email et le mot de passe dans Livraison > Partenaires.',
             ];
         }
 
@@ -294,15 +295,21 @@ class CathedisApiService
     private function notReadyMessage(array $status): string
     {
         if (! $status['enabled']) {
-            return 'API Cathedis désactivée. Dans .env, mettez CATHEDIS_ENABLED=true puis relancez php artisan config:clear et redémarrez le serveur.';
+            return 'API Cathedis désactivée. Activez-la dans Livraison > Partenaires.';
         }
 
         if (! $status['configured']) {
-            return 'Identifiants Cathedis manquants. Dans .env, ajoutez CATHEDIS_USERNAME + CATHEDIS_PASSWORD (ou CATHEDIS_API_TOKEN), puis php artisan config:clear.';
+            return 'Identifiants Cathedis manquants. Renseignez email + mot de passe (ou token) dans Livraison > Partenaires.';
         }
 
         if (empty($status['partner'])) {
-            return 'Partenaire Cathedis introuvable en base. Rechargez la page Partenaires ou lancez : php artisan db:seed --class=DemoDataSeeder';
+            return 'Partenaire Cathedis introuvable. Lancez php artisan cathedis:install ou ajoutez-le manuellement.';
+        }
+
+        if (! ($status['dispatch_ready'] ?? false)) {
+            $missing = implode(', ', $status['missing'] ?? []);
+
+            return 'Configuration d\'envoi incomplète : '.$missing.'. Complétez le formulaire dans Livraison > Partenaires.';
         }
 
         return 'Configuration Cathedis incomplète.';
