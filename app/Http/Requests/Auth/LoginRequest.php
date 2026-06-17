@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Support\CommercialEmail;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -42,11 +43,37 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $email = strtolower(trim((string) $this->input('email')));
+        $password = (string) $this->input('password');
+        $remember = $this->boolean('remember');
+
+        $attemptEmails = array_values(array_unique(array_filter([
+            $email,
+            str_contains($email, '@') ? null : CommercialEmail::fromInput($email),
+        ])));
+
+        $authenticated = false;
+
+        foreach ($attemptEmails as $attemptEmail) {
+            if (Auth::attempt(['email' => $attemptEmail, 'password' => $password], $remember)) {
+                $authenticated = true;
+                break;
+            }
+        }
+
+        if (! $authenticated) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
+            ]);
+        }
+
+        if (! Auth::user()->is_active) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'Votre compte est désactivé. Contactez l\'administrateur.',
             ]);
         }
 

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\UserRole;
 use App\Models\Order;
 use App\Models\User;
+use App\Notifications\LowStockNotification;
 use App\Notifications\OrderAwaitingValidationNotification;
 use Illuminate\Support\Collection;
 
@@ -16,6 +17,13 @@ class AdminNotificationService
 
         $this->admins()->each(function (User $admin) use ($order) {
             $admin->notify(new OrderAwaitingValidationNotification($order));
+        });
+    }
+
+    public function notifyLowStock(Product $product): void
+    {
+        $this->admins()->each(function (User $admin) use ($product) {
+            $admin->notify(new LowStockNotification($product));
         });
     }
 

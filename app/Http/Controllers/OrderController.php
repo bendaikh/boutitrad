@@ -19,6 +19,7 @@ use App\Support\ImageUpload;
 use App\Services\CommissionService;
 use App\Services\CathedisDispatchException;
 use App\Services\OrderListService;
+use App\Services\OrderStockService;
 use App\Services\OrderWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class OrderController extends Controller
         private OrderListService $orderList,
         private CommissionService $commissionService,
         private OrderWorkflowService $workflow,
+        private OrderStockService $orderStock,
     ) {}
 
     public function index(Request $request): View
@@ -79,6 +81,30 @@ class OrderController extends Controller
             ])->values()->all();
         }
 
+        if ($order) {
+            $order->loadMissing('items');
+        }
+
+        $reservedQuantities = $order
+            ? $order->items->groupBy('product_id')->map(fn ($items) => (int) $items->sum('quantity'))
+            : collect();
+
+        $orderProductIds = $order
+            ? $order->items->pluck('product_id')->filter()->unique()
+            : collect();
+
+        $activeProducts = Product::query()
+            ->where('is_active', true)
+            ->where(function ($query) use ($orderProductIds) {
+                $query->where('quantity', '>', 0);
+
+                if ($orderProductIds->isNotEmpty()) {
+                    $query->orWhereIn('id', $orderProductIds);
+                }
+            })
+            ->orderBy('name')
+            ->get();
+
         return [
             'order' => $order,
             'clients' => $clients,
@@ -94,13 +120,14 @@ class OrderController extends Controller
                 'commercial_id' => $client->commercial_id,
                 'payment_mode' => $client->payment_mode?->value,
             ])->values(),
-            'products' => Product::where('is_active', true)->where('quantity', '>', 0)->orderBy('name')->get(),
-            'productsData' => Product::where('is_active', true)->where('quantity', '>', 0)->orderBy('name')->get()->map(fn (Product $product) => [
+            'products' => $activeProducts,
+            'productsData' => $activeProducts->map(fn (Product $product) => [
                 'id' => $product->id,
                 'sku' => $product->sku,
                 'name' => $product->name,
                 'sale_price' => (float) $product->sale_price,
-                'stock' => $product->quantity,
+                'stock' => (int) $product->quantity + (int) ($reservedQuantities[$product->id] ?? 0),
+                'min_stock' => (int) ($product->min_quantity ?: 5),
             ])->values(),
             'commercials' => User::where('role', UserRole::Commercial)->where('is_active', true)->get(),
             'livreurs' => User::where('role', UserRole::Livreur)->where('is_active', true)->get(),
@@ -282,6 +309,8 @@ class OrderController extends Controller
             $validated['livreur_id'] = null;
         }
 
+        $this->orderStock->assertItemsAvailable($validated['items']);
+
         $order = DB::transaction(function () use ($validated, $user, $request) {
             $clientId = $this->resolveClientId($validated, $user);
             $subtotal = 0;
@@ -345,6 +374,8 @@ class OrderController extends Controller
                 $order->save();
             }
 
+            $this->orderStock->deductForOrder($order->fresh(['items.product']), $user);
+
             return $order;
         });
 
@@ -389,7 +420,10 @@ class OrderController extends Controller
             $validated['livreur_id'] = null;
         }
 
+        $this->orderStock->assertItemsAvailable($validated['items'], $order);
+
         DB::transaction(function () use ($validated, $order, $user, $request) {
+            $previousItems = $order->items()->get();
             $clientId = $this->resolveClientId($validated, $user);
             $subtotal = 0;
             $items = [];
@@ -449,6 +483,8 @@ class OrderController extends Controller
                 $order->created_at = $validated['order_date'];
                 $order->save();
             }
+
+            $this->orderStock->syncOrderItems($order->fresh(['items.product']), $previousItems, $user);
         });
 
         $message = $user->isCommercial()
@@ -465,7 +501,13 @@ class OrderController extends Controller
         $this->authorizeOrder($order);
         abort_unless($order->canBeModifiedBy(), 403, 'Cette commande ne peut pas être supprimée.');
 
-        $order->delete();
+        DB::transaction(function () use ($order) {
+            if ($this->orderStock->holdsStock($order->status)) {
+                $this->orderStock->restoreForOrder($order, auth()->user());
+            }
+
+            $order->delete();
+        });
 
         return redirect()
             ->route('orders.index')
@@ -571,6 +613,8 @@ class OrderController extends Controller
 
         $order->update($updates);
         $order->refresh();
+
+        $this->orderStock->restoreIfReleased($order, $previousStatus, auth()->user());
 
         $this->commissionService->syncAfterStatusChange($order, $previousStatus, $status);
 

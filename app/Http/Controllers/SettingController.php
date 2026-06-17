@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\Category;
 use App\Models\Setting;
 use App\Models\User;
+use App\Support\CommercialEmail;
 use App\Support\PermissionCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -68,12 +69,16 @@ class SettingController extends Controller
     {
         $validated = $this->validatePermissionUser($request, null);
 
+        $role = $validated['role'] instanceof UserRole
+            ? $validated['role']->value
+            : (string) $validated['role'];
+
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => $validated['password'],
             'role' => $validated['role'],
-            'permissions' => PermissionCatalog::sanitize($validated['permissions'] ?? []),
+            'permissions' => PermissionCatalog::sanitizeForRole($role, $validated['permissions'] ?? []),
             'is_active' => $request->boolean('is_active', true),
             'email_verified_at' => now(),
         ]);
@@ -87,11 +92,15 @@ class SettingController extends Controller
     {
         $validated = $this->validatePermissionUser($request, $user);
 
+        $role = $validated['role'] instanceof UserRole
+            ? $validated['role']->value
+            : (string) $validated['role'];
+
         $payload = [
             'name' => $validated['name'],
             'email' => $validated['email'],
             'role' => $validated['role'],
-            'permissions' => PermissionCatalog::sanitize($validated['permissions'] ?? []),
+            'permissions' => PermissionCatalog::sanitizeForRole($role, $validated['permissions'] ?? []),
             'is_active' => $request->boolean('is_active', true),
         ];
 
@@ -129,14 +138,17 @@ class SettingController extends Controller
             $request->merge(['password' => null]);
         }
 
+        if ($request->filled('email')) {
+            $request->merge(['email' => CommercialEmail::normalize($request->input('email'))]);
+        } elseif ($request->filled('email_local')) {
+            $request->merge(['email' => CommercialEmail::fromInput($request->input('email_local'))]);
+        }
+
+        $role = $request->input('role', $user?->role?->value);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => [
-                'required',
-                'email',
-                'max:255',
-                Rule::unique('users', 'email')->ignore($user?->id),
-            ],
+            'email' => CommercialEmail::rulesForRole($user, is_string($role) ? $role : $role?->value),
             'password' => [$user ? 'nullable' : 'required', 'string', Password::min(8)],
             'role' => ['required', Rule::enum(UserRole::class)],
             'permissions' => 'nullable|array',
@@ -150,6 +162,7 @@ class SettingController extends Controller
             'password.required' => 'Le mot de passe est obligatoire pour un nouvel utilisateur.',
             'password.min' => 'Le mot de passe doit contenir au moins :min caractères.',
             'role.required' => 'Le profil est obligatoire.',
+            ...CommercialEmail::messages(),
         ]);
 
         if ($user?->isSuperAdmin()) {

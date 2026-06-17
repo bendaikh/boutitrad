@@ -57,6 +57,9 @@
                     'categories' => $categories,
                     'brands' => $brands,
                     'previewSku' => $previewSku ?? null,
+                    'citiesData' => $citiesData ?? collect(),
+                    'initialCityId' => $initialCityId ?? null,
+                    'initialCityName' => $initialCityName ?? null,
                 ])
             </div>
 

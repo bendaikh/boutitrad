@@ -7,7 +7,13 @@
         $annulerUrl = route('commercials.index');
         $editBaseUrl = route('commercials.index');
         $isCommercialView = $commercialView ?? false;
-        $initialSelectedId = $formCommercial?->id;
+        $initialSelectedId = ($selectedCommercialId ?? null) ?? $formCommercial?->id;
+        $commercialIsActive = (bool) old('is_active', $formCommercial?->is_active ?? true);
+        $commercialEmailLocal = old('email_local');
+
+        if ($commercialEmailLocal === null) {
+            $commercialEmailLocal = \App\Support\CommercialEmail::localPart(old('email', $formCommercial?->email));
+        }
     @endphp
 
     <div
@@ -35,6 +41,15 @@
             },
             formatPercent(value) {
                 return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value ?? 0) + ' %';
+            },
+            emailLocalFromFull(email) {
+                if (! email) {
+                    return '';
+                }
+
+                const domain = '@beldimalaki.com';
+
+                return email.endsWith(domain) ? email.slice(0, -domain.length) : email;
             },
         }"
         x-init="$watch('selectedId', id => { deleteAction = id ? '{{ url('commercials') }}/' + id : '' })"
@@ -68,7 +83,7 @@
                         @elseif($isEdit)
                             Modifiez puis cliquez sur « Modifier » pour enregistrer
                         @else
-                            Remplissez le formulaire puis cliquez sur « Ajouter »
+                            Remplissez le formulaire puis cliquez sur « Valider »
                         @endif
                     </span>
                 </div>
@@ -82,7 +97,7 @@
 
                     <fieldset x-bind:disabled="!formActive" class="border-0 p-0 m-0 min-w-0">
                         <div class="admin-order-form-bar">
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-x-2 gap-y-2">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-x-2 gap-y-2">
                                 <div>
                                     <label class="admin-order-form-label">ID commercial</label>
                                     <input
@@ -119,18 +134,57 @@
                                     >
                                     @error('phone')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
                                 </div>
+                                <div class="sm:col-span-2 md:col-span-2">
+                                    <label for="commercial_email_local" class="admin-order-form-label">Login (email) *</label>
+                                    <div class="flex w-full rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm overflow-hidden focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500 dark:focus-within:border-brand-400 dark:focus-within:ring-brand-400">
+                                        <input
+                                            type="text"
+                                            id="commercial_email_local"
+                                            name="email_local"
+                                            value="{{ $commercialEmailLocal }}"
+                                            x-bind:value="formActive ? undefined : emailLocalFromFull(selected?.email ?? '')"
+                                            required
+                                            autocomplete="username"
+                                            placeholder="prenom.nom"
+                                            class="flex-1 min-w-0 border-0 bg-transparent text-slate-900 dark:text-slate-100 text-sm py-1.5 px-2.5 focus:ring-0 focus:outline-none"
+                                        >
+                                        <span class="inline-flex items-center px-3 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold border-l border-slate-200 dark:border-slate-600 shrink-0 select-none whitespace-nowrap">
+                                            @beldimalaki.com
+                                        </span>
+                                    </div>
+                                    @error('email')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="admin-order-form-bar" @if(! $formActive) x-cloak x-show="formActive" @endif>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-2 gap-y-2">
                                 <div>
-                                    <label for="commercial_email" class="admin-order-form-label">Email *</label>
+                                    <label for="commercial_password" class="admin-order-form-label">
+                                        Mot de passe @unless($isEdit)*@endunless
+                                    </label>
                                     <input
-                                        type="email"
-                                        id="commercial_email"
-                                        name="email"
-                                        value="{{ old('email', $formCommercial->email ?? '') }}"
-                                        x-bind:value="formActive ? undefined : (selected?.email ?? '')"
-                                        required
+                                        type="password"
+                                        id="commercial_password"
+                                        name="password"
+                                        @unless($isEdit) required @endunless
+                                        placeholder="{{ $isEdit ? 'Laisser vide = inchangé' : 'Min. 8 caractères' }}"
+                                        autocomplete="new-password"
                                         class="admin-order-form-input"
                                     >
-                                    @error('email')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
+                                    @error('password')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
+                                </div>
+                                <div class="flex items-end">
+                                    <label class="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200 cursor-pointer select-none pb-1.5">
+                                        <input
+                                            type="checkbox"
+                                            name="is_active"
+                                            value="1"
+                                            class="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                                            @checked($commercialIsActive)
+                                        >
+                                        Compte actif (peut se connecter)
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -182,6 +236,19 @@
                                 </div>
                             </div>
                         </div>
+
+                        @if($formActive)
+                        <div class="admin-order-form-bar">
+                            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Autorisations d'accès</p>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">
+                                Définissez ce que ce commercial peut faire dans l'application (comme dans Paramètres &gt; Autorisations).
+                            </p>
+                            @include('settings.partials.permissions-groups-panel', [
+                                'permissionGroups' => $permissionGroups ?? [],
+                                'permissions' => $commercialPermissions ?? [],
+                            ])
+                        </div>
+                        @endif
                     </fieldset>
                 </div>
 
@@ -190,7 +257,7 @@
                         @if($formActive && $isEdit)
                             <x-admin.action-btn type="submit" icon="edit" label="Modifier" variant="info" />
                         @elseif($formActive)
-                            <x-admin.action-btn type="submit" icon="plus" label="Ajouter" variant="success" />
+                            <x-admin.action-btn type="submit" icon="save" label="Valider" variant="success" />
                         @else
                             <x-admin.action-btn
                                 icon="plus"
@@ -337,35 +404,35 @@
                             </tr>
                         @endforelse
                     @else
-                        <tr x-show="!selectedId" x-cloak>
-                            <td colspan="10" class="admin-table-cell text-center align-top text-slate-500 dark:text-slate-400 py-10">
-                                Cliquez sur la flèche à côté de « Nom commercial » pour sélectionner un commercial.
-                            </td>
-                        </tr>
-                        <template x-for="commercial in commercials" :key="commercial.id">
+                        @forelse($commercials as $commercial)
                             <tr
-                                x-show="selectedId === commercial.id"
-                                x-cloak
-                                class="admin-row-hover admin-row-selected"
-                                @dblclick="window.location.href = '{{ $editBaseUrl }}?edit=' + commercial.id"
+                                class="admin-row-hover cursor-pointer"
+                                :class="selectedId === {{ $commercial->id }} ? 'admin-row-selected' : ''"
+                                @click="pickCommercial({{ $commercial->id }})"
+                                @dblclick.stop="window.location.href = '{{ $editBaseUrl }}?edit={{ $commercial->id }}'"
                             >
-                                <td class="admin-table-cell-muted font-mono text-xs text-center align-top" x-text="commercial.formatted_id"></td>
-                                <td class="admin-table-cell font-medium text-center align-top" x-text="commercial.name"></td>
-                                <td class="admin-table-cell text-center align-top" x-text="commercial.phone || '—'"></td>
-                                <td class="admin-table-cell text-center align-top" x-text="commercial.email"></td>
-                                <td class="admin-table-cell text-center align-top" x-text="commercial.whatsapp || '—'"></td>
-                                <td class="admin-table-cell text-center align-top" x-text="commercial.prospect_zone || '—'"></td>
-                                <td class="admin-table-cell text-center align-top tabular-nums" x-text="formatPercent(commercial.effective_commission_rate)"></td>
-                                <td class="admin-table-cell text-center align-top tabular-nums font-semibold" x-text="commercial.delivered_orders_count"></td>
-                                <td class="admin-table-cell text-center align-top tabular-nums font-medium" x-text="formatMoney(commercial.total_sales)"></td>
-                                <td class="admin-table-cell text-center align-top tabular-nums font-semibold text-emerald-700 dark:text-emerald-400" x-text="formatMoney(commercial.total_commissions)"></td>
+                                <td class="admin-table-cell-muted font-mono text-xs text-center align-top">{{ $commercial->formattedCommercialId() }}</td>
+                                <td class="admin-table-cell font-medium text-center align-top">{{ $commercial->name }}</td>
+                                <td class="admin-table-cell text-center align-top">{{ $commercial->phone ?: '—' }}</td>
+                                <td class="admin-table-cell text-center align-top">{{ $commercial->email }}</td>
+                                <td class="admin-table-cell text-center align-top">{{ $commercial->whatsapp ?: '—' }}</td>
+                                <td class="admin-table-cell text-center align-top">{{ $commercial->prospect_zone ?: '—' }}</td>
+                                <td class="admin-table-cell text-center align-top tabular-nums">
+                                    {{ number_format($commercial->effective_commission_rate ?? 0, 1, ',', ' ') }} %
+                                </td>
+                                <td class="admin-table-cell text-center align-top tabular-nums font-semibold">{{ $commercial->delivered_orders_count ?? 0 }}</td>
+                                <td class="admin-table-cell text-center align-top tabular-nums font-medium">{{ number_format($commercial->total_sales ?? 0, 2, ',', ' ') }} DH</td>
+                                <td class="admin-table-cell text-center align-top tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
+                                    {{ number_format($commercial->total_commissions ?? 0, 2, ',', ' ') }} DH
+                                </td>
                             </tr>
-                        </template>
-                        <tr x-show="commercials.length === 0">
-                            <td colspan="10" class="admin-table-cell text-center text-slate-500 dark:text-slate-400 py-8">
-                                Aucun commercial. Cliquez sur « Ajouter » pour en créer un.
-                            </td>
-                        </tr>
+                        @empty
+                            <tr>
+                                <td colspan="10" class="admin-table-cell text-center text-slate-500 dark:text-slate-400 py-8">
+                                    Aucun commercial. Cliquez sur « Ajouter » pour en créer un.
+                                </td>
+                            </tr>
+                        @endforelse
                     @endif
                 </tbody>
             </x-admin.data-table>

@@ -1,4 +1,4 @@
-<x-admin-layout title="Gestion du Stock">
+<x-admin-layout title="{{ auth()->user()->isCommercial() ? 'Consultation du stock' : 'Gestion du Stock' }}">
     @php
         $filterParams = request()->only(['category_id', 'status', 'etat']);
         $exportQuery = http_build_query(array_filter($filterParams, fn ($v) => $v !== null && $v !== ''));
@@ -136,6 +136,7 @@
         </x-admin.data-table>
 
         <div class="shrink-0 flex flex-wrap items-center justify-end gap-2 notranslate" translate="no">
+            @if(auth()->user()->hasPermission('stock.print'))
             <x-admin.action-btn
                 icon="print"
                 label="Imprimer"
@@ -154,6 +155,7 @@
                 :href="route('stock.export.excel').$exportSuffix"
                 target="_blank"
             />
+            @endif
         </div>
     </x-admin.list-page>
 </x-admin-layout>

@@ -84,10 +84,10 @@
                         :active="request()->routeIs('products.*', 'categories.*', 'stock.*')"
                         :open="$openMenu === 'stock'"
                     >
-                        @if($user->hasAnyPermission(['products.view', 'products.create', 'products.update', 'products.delete']))
+                        @if($user->canManageStockCatalog() && $user->hasAnyPermission(['products.view', 'products.create', 'products.update', 'products.delete']))
                             <x-admin.nav-sublink route="products.index" icon="box">Produits</x-admin.nav-sublink>
                         @endif
-                        @if($user->hasAnyPermission(['categories.view', 'categories.create', 'categories.update', 'categories.delete']))
+                        @if($user->canManageStockCatalog() && $user->hasAnyPermission(['categories.view', 'categories.create', 'categories.update', 'categories.delete']))
                             <x-admin.nav-sublink route="categories.index" icon="tag">Catégorie</x-admin.nav-sublink>
                         @endif
                         @if($user->hasAnyPermission(['stock.view', 'stock.print']))

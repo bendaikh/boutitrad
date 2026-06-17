@@ -79,11 +79,19 @@ class User extends Authenticatable
             return ['*'];
         }
 
-        if (is_array($this->permissions) && $this->permissions !== []) {
-            return $this->permissions;
+        $permissions = is_array($this->permissions) && $this->permissions !== []
+            ? $this->permissions
+            : PermissionCatalog::defaultsForRole($this->role->value);
+
+        if ($this->isCommercial()) {
+            foreach (['stock.view', 'stock.print'] as $stockPermission) {
+                if (! in_array($stockPermission, $permissions, true)) {
+                    $permissions[] = $stockPermission;
+                }
+            }
         }
 
-        return PermissionCatalog::defaultsForRole($this->role->value);
+        return $permissions;
     }
 
     public function hasPermission(string $permission): bool
@@ -117,6 +125,10 @@ class User extends Authenticatable
 
     public function canAccessClientsModule(): bool
     {
+        if (! $this->hasRole(UserRole::SuperAdmin, UserRole::Commercial)) {
+            return false;
+        }
+
         return $this->hasAnyPermission([
             'clients.create', 'clients.view', 'clients.update', 'clients.delete',
             'clients.balance.view', 'clients.balance.print',
@@ -125,6 +137,10 @@ class User extends Authenticatable
 
     public function canAccessStockModule(): bool
     {
+        if (! $this->hasRole(UserRole::SuperAdmin, UserRole::GestionnaireStock, UserRole::Commercial)) {
+            return false;
+        }
+
         return $this->hasAnyPermission([
             'products.view', 'products.create', 'products.update', 'products.delete',
             'categories.view', 'categories.create', 'categories.update', 'categories.delete',
@@ -132,8 +148,21 @@ class User extends Authenticatable
         ]);
     }
 
+    public function canManageStockCatalog(): bool
+    {
+        return $this->hasRole(UserRole::SuperAdmin, UserRole::GestionnaireStock)
+            && $this->hasAnyPermission([
+                'products.create', 'products.update', 'products.delete',
+                'categories.view', 'categories.create', 'categories.update', 'categories.delete',
+            ]);
+    }
+
     public function canAccessVentesModule(): bool
     {
+        if (! $this->hasRole(UserRole::SuperAdmin, UserRole::Commercial)) {
+            return false;
+        }
+
         return $this->hasAnyPermission([
             'orders.view', 'orders.validate', 'orders.create', 'orders.update', 'orders.delete',
             'commercials.view', 'commercials.create', 'commercials.update', 'commercials.delete',

@@ -23,7 +23,7 @@ Route::get('/', function () {
         : redirect()->route('login');
 });
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::middleware('role:superadmin,commercial')->group(function () {
@@ -52,13 +52,16 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('sales/payments/{payment}/status', [SalesController::class, 'updatePaymentStatus'])->name('sales.payments.update-status');
     });
 
-    Route::middleware('role:superadmin,gestionnaire_stock')->group(function () {
-        Route::get('products/{product}/print', [ProductController::class, 'print'])->name('products.print');
-        Route::resource('products', ProductController::class);
+    Route::middleware('role:superadmin,commercial,gestionnaire_stock')->group(function () {
         Route::get('stock', [StockController::class, 'index'])->name('stock.index');
         Route::get('stock/print', [StockController::class, 'print'])->name('stock.print');
         Route::get('stock/export/pdf', [StockController::class, 'exportPdf'])->name('stock.export.pdf');
         Route::get('stock/export/excel', [StockController::class, 'exportExcel'])->name('stock.export.excel');
+    });
+
+    Route::middleware('role:superadmin,gestionnaire_stock')->group(function () {
+        Route::get('products/{product}/print', [ProductController::class, 'print'])->name('products.print');
+        Route::resource('products', ProductController::class);
         Route::get('stock/movements', [StockController::class, 'movements'])->name('stock.movements');
         Route::post('stock/adjust', [StockController::class, 'adjust'])->name('stock.adjust');
         Route::get('categories', [CategoryController::class, 'index'])->name('categories.index');

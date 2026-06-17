@@ -14,7 +14,7 @@ class CheckRole
         $user = $request->user();
 
         if (! $user || ! $user->is_active) {
-            abort(403);
+            abort(403, 'Votre compte est désactivé. Contactez l\'administrateur.');
         }
 
         if ($user->isSuperAdmin()) {

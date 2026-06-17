@@ -19,6 +19,7 @@ class OrderWorkflowService
         private CathedisDispatchService $cathedis,
         private CommissionService $commissionService,
         private AdminNotificationService $adminNotifications,
+        private OrderStockService $orderStock,
     ) {}
 
     public function submitToAdmin(Order $order, User $user): Order
@@ -132,6 +133,8 @@ class OrderWorkflowService
                     'notes' => $data['notes'] ?? 'Retour signalé par le partenaire',
                     'user_id' => $user->id,
                 ]);
+
+                $this->orderStock->restoreForOrder($order->fresh(['items.product']), $user);
             } else {
                 $order->update([
                     'status' => OrderStatus::Livree,
@@ -178,7 +181,7 @@ class OrderWorkflowService
 
         return $this->transition($order, $user, OrderStatus::Annulee, [
             'cancelled_at' => now(),
-        ], $notes ?? 'Commande rejetée par l\'admin');
+        ], $notes ?? 'Commande rejetée par l\'admin', restoreStock: true);
     }
 
     public function allowedStatusesFor(User $user, Order $order): array
@@ -194,7 +197,7 @@ class OrderWorkflowService
         return [];
     }
 
-    private function transition(Order $order, User $user, OrderStatus $status, array $extra, string $note): Order
+    private function transition(Order $order, User $user, OrderStatus $status, array $extra, string $note, bool $restoreStock = false): Order
     {
         $previousStatus = $order->status;
 
@@ -208,6 +211,11 @@ class OrderWorkflowService
         ]);
 
         $order->refresh();
+
+        if ($restoreStock) {
+            $this->orderStock->restoreIfReleased($order, $previousStatus, $user);
+        }
+
         $this->commissionService->syncAfterStatusChange($order, $previousStatus, $status);
 
         return $order;

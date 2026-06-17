@@ -121,10 +121,55 @@
                     <input type="text" id="supplier" name="supplier" value="{{ old('supplier', $product->supplier ?? '') }}" class="admin-product-form-input">
                     @error('supplier')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
                 </div>
-                <div class="col-span-1 xl:col-span-2">
-                    <label for="city" class="admin-product-form-label">Ville</label>
-                    <input type="text" id="city" name="city" value="{{ old('city', $product->city ?? '') }}" class="admin-product-form-input">
+                <div class="col-span-1 xl:col-span-2 relative" x-data="productCityPicker()" @click.outside="closeCityDropdown()" :class="cityOpen && 'z-[150]'">
+                    <label for="product_city_search" class="admin-product-form-label">Ville</label>
+                    <input type="hidden" name="city_id" :value="cityId">
+                    <input type="hidden" name="city" :value="cityQuery">
+                    <input
+                        type="text"
+                        id="product_city_search"
+                        x-ref="cityInput"
+                        x-model="cityQuery"
+                        @focus="openCityDropdown($event)"
+                        @click="openCityDropdown($event)"
+                        @input="openCityDropdown(); onCityQueryInput()"
+                        @keydown.escape.prevent="closeCityDropdown()"
+                        @keydown.arrow-down.prevent="openCityDropdown()"
+                        autocomplete="off"
+                        placeholder="Ex : Casa, Rabat, Marrakech…"
+                        class="admin-product-form-input"
+                    >
+                    <div
+                        x-show="cityOpen"
+                        x-cloak
+                        x-bind:style="cityDropdownStyle"
+                        class="admin-city-search-dropdown"
+                    >
+                        <p
+                            x-show="cityQuery.trim().length < 2"
+                            class="px-3 py-2 text-sm text-slate-500 dark:text-slate-400"
+                            x-text="cityResultsHint"
+                        ></p>
+                        <p
+                            x-show="cityQuery.trim().length >= 2 && cityMatches.length === 0"
+                            class="px-3 py-2 text-sm text-slate-500 dark:text-slate-400"
+                        >Aucune ville trouvée — synchronisez les villes Cathedis</p>
+                        <template x-for="city in filteredCities" :key="city.id">
+                            <button
+                                type="button"
+                                class="admin-city-search-option"
+                                @mousedown.prevent="selectCity(city)"
+                                x-text="city.name"
+                            ></button>
+                        </template>
+                        <p
+                            x-show="cityQuery.trim().length >= 2 && cityMatches.length > 0"
+                            class="admin-city-search-hint"
+                            x-text="cityResultsHint"
+                        ></p>
+                    </div>
                     @error('city')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
+                    @error('city_id')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
                 </div>
                 <div class="col-span-1 xl:col-span-2">
                     <label for="category_id" class="admin-product-form-label">Catégorie produit</label>
@@ -184,6 +229,105 @@
 
 @push('scripts')
 <script>
+    function productCityPicker() {
+        const cities = @json($citiesData ?? []);
+
+        return {
+            cityId: @json($initialCityId ? (string) $initialCityId : ''),
+            cityQuery: @json($initialCityName ?? ''),
+            cityOpen: false,
+            cityDropdownStyle: '',
+            get cityMatches() {
+                const q = this.normalizeCitySearch(this.cityQuery.trim());
+                if (q.length < 2) {
+                    return [];
+                }
+                return cities.filter(city => this.normalizeCitySearch(city.name).includes(q));
+            },
+            get filteredCities() {
+                const q = this.cityQuery.trim();
+                if (q.length < 2) {
+                    return cities.slice(0, 30);
+                }
+                return this.cityMatches.slice(0, 30);
+            },
+            get cityResultsHint() {
+                const total = cities.length;
+                const q = this.cityQuery.trim();
+                if (q.length < 2) {
+                    return total
+                        ? `Recherche parmi ${total} villes — tapez au moins 2 lettres`
+                        : 'Aucune ville — synchronisez Cathedis dans Livraison > Partenaires';
+                }
+                const matches = this.cityMatches.length;
+                if (matches === 0) {
+                    return '';
+                }
+                return matches === 1 ? '1 ville trouvée' : `${matches} villes trouvées`;
+            },
+            normalizeCitySearch(value) {
+                return String(value || '')
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '');
+            },
+            init() {
+                this.syncCityQueryFromId();
+                this.bindCityDropdownListeners();
+            },
+            bindCityDropdownListeners() {
+                const reposition = () => {
+                    if (this.cityOpen) {
+                        this.updateCityDropdownPosition();
+                    }
+                };
+                window.addEventListener('scroll', reposition, true);
+                window.addEventListener('resize', reposition);
+            },
+            updateCityDropdownPosition() {
+                const input = this.$refs.cityInput;
+                if (! input) {
+                    return;
+                }
+                const rect = input.getBoundingClientRect();
+                const maxHeight = Math.max(240, Math.min(window.innerHeight * 0.7, 448, window.innerHeight - rect.bottom - 12));
+                this.cityDropdownStyle = `top:${rect.bottom + 4}px;left:${rect.left}px;width:${rect.width}px;max-height:${maxHeight}px;`;
+            },
+            openCityDropdown(event = null) {
+                this.cityOpen = true;
+                this.$nextTick(() => this.updateCityDropdownPosition());
+                if (event?.target?.select && this.cityQuery) {
+                    event.target.select();
+                }
+            },
+            closeCityDropdown() {
+                this.cityOpen = false;
+            },
+            syncCityQueryFromId() {
+                if (! this.cityId) {
+                    return;
+                }
+                const city = cities.find(c => String(c.id) === String(this.cityId));
+                if (city) {
+                    this.cityQuery = city.name;
+                }
+            },
+            selectCity(city) {
+                this.cityId = String(city.id);
+                this.cityQuery = city.name;
+                this.closeCityDropdown();
+            },
+            onCityQueryInput() {
+                const exact = cities.find(c => this.normalizeCitySearch(c.name) === this.normalizeCitySearch(this.cityQuery));
+                if (exact) {
+                    this.cityId = String(exact.id);
+                    return;
+                }
+                this.cityId = '';
+            },
+        };
+    }
+
     function previewProductImage(event) {
         const file = event.target.files[0];
         const preview = document.getElementById('product-image-preview');

@@ -10,12 +10,13 @@ use App\Models\Order;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\CommissionService;
+use App\Support\CommercialEmail;
+use App\Support\PermissionCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -41,6 +42,7 @@ class CommercialController extends Controller
             : null;
 
         $commercials = $this->commercialRows();
+        $selectedCommercialId = $editingCommercial?->id ?? ($request->filled('selected') ? (int) $request->input('selected') : null);
 
         return view('commercials.index', [
             'commercials' => $commercials,
@@ -63,6 +65,12 @@ class CommercialController extends Controller
             'previewCommercialId' => User::previewCommercialId(),
             'defaultCommissionRate' => (float) Setting::get('commission_rate', 5),
             'commercialView' => false,
+            'permissionGroups' => PermissionCatalog::groupsForRole('commercial'),
+            'commercialPermissions' => old(
+                'permissions',
+                $editingCommercial?->effectivePermissions() ?? PermissionCatalog::defaultsForRole('commercial')
+            ),
+            'selectedCommercialId' => $selectedCommercialId,
         ]);
     }
 
@@ -72,15 +80,28 @@ class CommercialController extends Controller
 
         $validated = $this->validateCommercial($request);
 
-        User::create([
-            ...$validated,
+        $permissions = PermissionCatalog::sanitizeForRole(
+            UserRole::Commercial->value,
+            $validated['permissions'] ?? []
+        );
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
+            'whatsapp' => $validated['whatsapp'] ?? null,
+            'prospect_zone' => $validated['prospect_zone'] ?? null,
+            'commission_rate' => $validated['commission_rate'] ?? null,
+            'password' => $validated['password'],
             'role' => UserRole::Commercial,
-            'password' => Hash::make(Str::password(12)),
-            'is_active' => true,
+            'permissions' => $permissions,
+            'is_active' => $request->boolean('is_active', true),
             'email_verified_at' => now(),
         ]);
 
-        return redirect()->route('commercials.index')->with('success', 'Commercial créé avec succès.');
+        return redirect()
+            ->route('commercials.index', ['selected' => $user->id])
+            ->with('success', 'Commercial créé. Il peut se connecter avec son login et mot de passe.');
     }
 
     public function update(Request $request, User $user): RedirectResponse
@@ -90,9 +111,29 @@ class CommercialController extends Controller
 
         $validated = $this->validateCommercial($request, $user);
 
-        $user->update($validated);
+        $payload = [
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
+            'whatsapp' => $validated['whatsapp'] ?? null,
+            'prospect_zone' => $validated['prospect_zone'] ?? null,
+            'commission_rate' => $validated['commission_rate'] ?? null,
+            'permissions' => PermissionCatalog::sanitizeForRole(
+                UserRole::Commercial->value,
+                $validated['permissions'] ?? []
+            ),
+            'is_active' => $request->boolean('is_active', true),
+        ];
 
-        return redirect()->route('commercials.index')->with('success', 'Commercial mis à jour.');
+        if (! empty($validated['password'])) {
+            $payload['password'] = $validated['password'];
+        }
+
+        $user->update($payload);
+
+        return redirect()
+            ->route('commercials.index', ['selected' => $user->id])
+            ->with('success', 'Commercial mis à jour.');
     }
 
     public function destroy(User $user): RedirectResponse
@@ -175,18 +216,34 @@ class CommercialController extends Controller
 
     private function validateCommercial(Request $request, ?User $commercial = null): array
     {
+        if ($request->input('password') === '') {
+            $request->merge(['password' => null]);
+        }
+
+        if ($request->filled('email')) {
+            $request->merge(['email' => CommercialEmail::normalize($request->input('email'))]);
+        } elseif ($request->filled('email_local')) {
+            $request->merge(['email' => CommercialEmail::fromInput($request->input('email_local'))]);
+        }
+
         return $request->validate([
             'name' => 'required|string|max:255',
-            'email' => [
-                'required',
-                'email',
-                'max:255',
-                Rule::unique('users', 'email')->ignore($commercial?->id),
-            ],
+            'email' => CommercialEmail::rules($commercial),
+            'password' => [$commercial ? 'nullable' : 'required', 'string', Password::min(8)],
             'phone' => 'nullable|string|max:50',
             'whatsapp' => 'nullable|string|max:50',
             'prospect_zone' => 'nullable|string|max:255',
             'commission_rate' => 'nullable|numeric|min:0|max:100',
+            'permissions' => 'nullable|array',
+            'permissions.*' => ['string', Rule::in(PermissionCatalog::keys())],
+            'is_active' => 'nullable|boolean',
+        ], [
+            'email.required' => 'Le login (email) est obligatoire.',
+            'email.email' => 'Le login doit être une adresse email valide.',
+            'email.unique' => 'Cet email est déjà utilisé par un autre compte.',
+            'password.required' => 'Le mot de passe est obligatoire pour un nouveau commercial.',
+            'password.min' => 'Le mot de passe doit contenir au moins :min caractères.',
+            ...CommercialEmail::messages(),
         ]);
     }
 
@@ -213,7 +270,6 @@ class CommercialController extends Controller
     {
         return User::query()
             ->where('role', UserRole::Commercial)
-            ->where('is_active', true)
             ->where('email', '!=', 'commercial@boutitrad.com')
             ->withCount(['commercialOrders as delivered_orders_count' => fn ($q) => $q->where('status', OrderStatus::Livree)])
             ->withSum(

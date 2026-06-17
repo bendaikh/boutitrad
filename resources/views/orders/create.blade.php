@@ -248,7 +248,7 @@
                 <div class="sm:col-span-1"></div>
             </div>
             <p x-show="showStock" x-cloak class="hidden sm:block text-[10px] text-slate-500 dark:text-slate-400 mb-2 px-0.5">
-                Le stock restant se recalcule automatiquement selon la quantité saisie.
+                Le stock disponible se met à jour à chaque saisie. La prochaine commande affichera le stock restant.
             </p>
 
             <template x-for="(item, index) in items" :key="index">
@@ -279,10 +279,12 @@
                             :name="'items['+index+'][quantity]'"
                             x-model="item.quantity"
                             min="1"
+                            :max="availableForLine(item, index) || null"
                             required
                             placeholder="Qté"
                             class="admin-order-form-input text-center tabular-nums"
                             :class="quantityInputClass(item)"
+                            @input="clampQuantity(index)"
                         >
                         <p
                             x-show="showStock && item.product_id"
@@ -292,6 +294,7 @@
                         >
                             Dispo : <span x-text="formatStock(item.stock)"></span>
                             · Reste : <span x-text="formatStock(remainingStock(item))"></span>
+                            <span x-show="isLowStock(item)"> — stock faible (min. <span x-text="item.min_stock || 5"></span>)</span>
                             <span x-show="exceedsStock(item)"> — dépasse le stock</span>
                         </p>
                     </div>
@@ -467,6 +470,7 @@
                 name: product?.name ?? '',
                 unit_price: data.unit_price ?? product?.sale_price ?? 0,
                 stock: product?.stock ?? 0,
+                min_stock: product?.min_stock ?? 5,
             };
         }
 
@@ -688,11 +692,39 @@
                     item.name = '';
                     item.unit_price = 0;
                     item.stock = 0;
+                    item.min_stock = 5;
+                    item.quantity = '';
                     return;
                 }
                 item.name = product.name;
                 item.unit_price = product.sale_price;
                 item.stock = product.stock;
+                item.min_stock = product.min_stock ?? 5;
+                const available = this.availableForLine(item, index);
+                item.quantity = available > 0 ? available : '';
+            },
+            availableForLine(item, index) {
+                const stock = Number(item.stock) || 0;
+
+                if (! item.product_id) {
+                    return 0;
+                }
+
+                const usedElsewhere = this.items
+                    .filter((_, lineIndex) => lineIndex !== index)
+                    .filter(line => String(line.product_id) === String(item.product_id))
+                    .reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
+
+                return Math.max(0, stock - usedElsewhere);
+            },
+            clampQuantity(index) {
+                const item = this.items[index];
+                const available = this.availableForLine(item, index);
+                const qty = Number(item.quantity) || 0;
+
+                if (available > 0 && qty > available) {
+                    item.quantity = available;
+                }
             },
             lineSubtotal(item) {
                 const qty = Number(item.quantity) || 0;
@@ -734,7 +766,13 @@
                 const stock = Number(item.stock) || 0;
                 const ordered = this.orderedQuantityForProduct(item.product_id);
 
-                return stock - ordered;
+                return Math.max(0, stock - ordered);
+            },
+            isLowStock(item) {
+                const remaining = this.remainingStock(item);
+                const min = Number(item.min_stock) || 5;
+
+                return remaining > 0 && remaining <= min;
             },
             exceedsStock(item) {
                 const stock = Number(item.stock) || 0;
@@ -750,7 +788,7 @@
                 if (remaining === 0) {
                     return 'text-amber-600 dark:text-amber-400';
                 }
-                if (remaining <= 5) {
+                if (this.isLowStock(item)) {
                     return 'text-amber-600 dark:text-amber-400';
                 }
 

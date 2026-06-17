@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
@@ -28,7 +29,23 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $user = Auth::user();
+
+        if (! $user->isSuperAdmin()) {
+            $request->session()->forget('url.intended');
+        }
+
+        return redirect()->intended($this->homePathFor($user));
+    }
+
+    private function homePathFor($user): string
+    {
+        return match ($user->role) {
+            UserRole::Commercial => route('orders.index', absolute: false),
+            UserRole::GestionnaireStock => route('stock.index', absolute: false),
+            UserRole::Livreur => route('deliveries.transport', absolute: false),
+            default => route('dashboard', absolute: false),
+        };
     }
 
     /**

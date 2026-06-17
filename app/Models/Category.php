@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Storage;
 
 class Category extends Model
 {
@@ -22,6 +21,6 @@ class Category extends Model
 
     public function imageUrl(): ?string
     {
-        return $this->image ? Storage::disk('public')->url($this->image) : null;
+        return $this->image ? '/storage/'.$this->image : null;
     }
 }

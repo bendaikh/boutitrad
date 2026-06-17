@@ -115,6 +115,7 @@ return [
             'commercials.view',
             'sales.balance.view', 'sales.balance.print',
             'payments.view', 'payments.create',
+            'stock.view', 'stock.print',
         ],
         'gestionnaire_stock' => [
             'dashboard.access',
