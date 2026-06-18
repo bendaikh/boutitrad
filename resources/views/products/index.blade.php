@@ -63,12 +63,13 @@
                 ])
             </div>
 
-            <x-admin.data-table min-width="1180px" class="flex-1 min-h-0">
+            <x-admin.data-table min-width="1260px" class="flex-1 min-h-0">
                 @if($products->hasPages())
                     <x-slot:footer>{{ $products->links() }}</x-slot:footer>
                 @endif
                 <thead>
                     <tr>
+                        <th class="text-left w-16">Photo</th>
                         <th class="text-left">Réf produit</th>
                         <th class="text-left">Désignation produit</th>
                         <th class="text-left">Catégorie produit</th>
@@ -95,6 +96,15 @@
                             @click="selectedId = {{ $product->id }}"
                             @dblclick="window.location.href = editUrl + (editUrl.includes('?') ? '&' : '?') + 'edit={{ $product->id }}'"
                         >
+                            <td class="admin-table-cell py-2">
+                                @if($product->imageUrl())
+                                    <img src="{{ $product->imageUrl() }}" alt="{{ $product->name }}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-slate-600">
+                                @else
+                                    <div class="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-slate-400">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    </div>
+                                @endif
+                            </td>
                             <td class="admin-table-cell-muted font-mono text-xs">{{ $product->sku }}</td>
                             <td class="admin-table-cell font-medium">{{ $product->name }}</td>
                             <td class="admin-table-cell">{{ $product->category?->name ?? '—' }}</td>
@@ -110,7 +120,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="admin-table-cell text-center text-slate-500 dark:text-slate-400">Aucun produit</td>
+                            <td colspan="9" class="admin-table-cell text-center text-slate-500 dark:text-slate-400">Aucun produit</td>
                         </tr>
                     @endforelse
                 </tbody>
