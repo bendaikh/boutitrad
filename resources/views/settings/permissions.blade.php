@@ -26,7 +26,7 @@
         <div class="admin-card p-4">
             <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Gestion des autorisations</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Saisissez l'utilisateur puis cochez les droits par module : Tableau de bord, Clients, Stock, Ventes.
+                Saisissez l'utilisateur puis cochez les droits par module : Tableau de bord, Clients, Stock, Ventes, Configuration.
             </p>
         </div>
 

@@ -43,6 +43,10 @@
                         @csrf
                         <button type="submit" class="px-4 py-2 btn-dark text-sm">Synchroniser les villes</button>
                     </form>
+                    <form method="POST" action="{{ route('deliveries.cathedis.sync-orders') }}">
+                        @csrf
+                        <button type="submit" class="px-4 py-2 btn-dark text-sm">Synchroniser les statuts commandes</button>
+                    </form>
                     <form method="POST" action="{{ route('deliveries.cathedis.test') }}">
                         @csrf
                         <button type="submit" class="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700">Tester la connexion</button>

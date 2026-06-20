@@ -5,7 +5,7 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CommercialController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
-use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\ChargeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
@@ -48,8 +48,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('sales/balance/export/pdf', [SalesController::class, 'balanceExportPdf'])->name('sales.balance.export.pdf');
         Route::get('sales/balance/export/excel', [SalesController::class, 'balanceExportExcel'])->name('sales.balance.export.excel');
         Route::get('sales/payments', [SalesController::class, 'payments'])->name('sales.payments');
+        Route::get('sales/payments/stats', [SalesController::class, 'payrollStats'])->name('sales.payments.stats');
         Route::post('sales/payments', [SalesController::class, 'storePayment'])->name('sales.payments.store');
-        Route::patch('sales/payments/{payment}/status', [SalesController::class, 'updatePaymentStatus'])->name('sales.payments.update-status');
+        Route::put('sales/payments/{payroll}', [SalesController::class, 'updatePayment'])->name('sales.payments.update');
+        Route::delete('sales/payments/{payroll}', [SalesController::class, 'destroyPayment'])->name('sales.payments.destroy');
+        Route::get('sales/payments/print', [SalesController::class, 'paymentsPrint'])->name('sales.payments.print');
+        Route::get('sales/payments/export/pdf', [SalesController::class, 'paymentsExportPdf'])->name('sales.payments.export.pdf');
     });
 
     Route::middleware('role:superadmin,commercial,gestionnaire_stock')->group(function () {
@@ -85,6 +89,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::middleware('role:superadmin')->group(function () {
         Route::post('deliveries/partners', [DeliveryController::class, 'storePartner'])->name('deliveries.partners.store');
         Route::post('deliveries/cathedis/sync-cities', [DeliveryController::class, 'syncCathedisCities'])->name('deliveries.cathedis.sync-cities');
+        Route::post('deliveries/cathedis/sync-orders', [DeliveryController::class, 'syncCathedisOrders'])->name('deliveries.cathedis.sync-orders');
         Route::post('deliveries/cathedis/test', [DeliveryController::class, 'testCathedisConnection'])->name('deliveries.cathedis.test');
         Route::post('deliveries/cathedis/config', [DeliveryController::class, 'storeCathedisConfig'])->name('deliveries.cathedis.config');
     });
@@ -100,9 +105,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('commercials', [CommercialController::class, 'store'])->name('commercials.store');
         Route::put('commercials/{user}', [CommercialController::class, 'update'])->name('commercials.update');
         Route::delete('commercials/{user}', [CommercialController::class, 'destroy'])->name('commercials.destroy');
-        Route::get('finance', [FinanceController::class, 'index'])->name('finance.index');
-        Route::post('finance/expenses', [FinanceController::class, 'storeExpense'])->name('finance.expenses.store');
-        Route::post('finance/transactions', [FinanceController::class, 'storeTransaction'])->name('finance.transactions.store');
+        Route::get('charges', [ChargeController::class, 'index'])->name('charges.index');
+        Route::post('charges/expenses', [ChargeController::class, 'storeExpense'])->name('charges.expenses.store');
+        Route::put('charges/expenses/{expense}', [ChargeController::class, 'updateExpense'])->name('charges.expenses.update');
+        Route::delete('charges/expenses/{expense}', [ChargeController::class, 'destroyExpense'])->name('charges.expenses.destroy');
+        Route::get('charges/print', [ChargeController::class, 'print'])->name('charges.print');
+        Route::get('charges/export/pdf', [ChargeController::class, 'exportPdf'])->name('charges.export.pdf');
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
         Route::resource('users', UserController::class)->except(['show']);
         Route::get('settings/permissions', [SettingController::class, 'permissions'])->name('settings.permissions');

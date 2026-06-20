@@ -41,7 +41,7 @@ class AuthenticatedSessionController extends Controller
     private function homePathFor($user): string
     {
         return match ($user->role) {
-            UserRole::Commercial => route('orders.index', absolute: false),
+            UserRole::Commercial => route('dashboard', absolute: false),
             UserRole::GestionnaireStock => route('stock.index', absolute: false),
             UserRole::Livreur => route('deliveries.transport', absolute: false),
             default => route('dashboard', absolute: false),

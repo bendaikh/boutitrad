@@ -17,6 +17,7 @@ class OrderWorkflowService
 {
     public function __construct(
         private CathedisDispatchService $cathedis,
+        private CathedisStatusSyncService $cathedisStatusSync,
         private CommissionService $commissionService,
         private AdminNotificationService $adminNotifications,
         private OrderStockService $orderStock,
@@ -55,10 +56,6 @@ class OrderWorkflowService
             throw new InvalidArgumentException('Seul l\'admin peut valider et envoyer au partenaire.');
         }
 
-        if (! in_array($order->status, [OrderStatus::EnCours, OrderStatus::Nouvelle], true)) {
-            throw new InvalidArgumentException('Cette commande ne peut plus être validée.');
-        }
-
         $partner = $partnerId
             ? DeliveryPartner::query()->where('is_active', true)->findOrFail($partnerId)
             : DeliveryPartner::defaultPartner();
@@ -68,44 +65,80 @@ class OrderWorkflowService
         }
 
         $order->loadMissing('client.cityRecord');
+
+        if ($order->status === OrderStatus::Confirmee && blank($order->partner_tracking_ref)) {
+            return $this->retryPartnerDispatch($order, $user, $partner);
+        }
+
+        if (! in_array($order->status, [OrderStatus::EnCours, OrderStatus::Nouvelle], true)) {
+            if ($order->hasBeenValidatedByAdmin()) {
+                throw new InvalidArgumentException(
+                    'Cette commande a déjà été validée (statut : '.$order->status->label().').'
+                );
+            }
+
+            throw new InvalidArgumentException(
+                'Cette commande ne peut plus être validée (statut : '.$order->status->label().').'
+            );
+        }
+
         $this->assertReadyForPartnerDispatch($order, $partner);
 
         return DB::transaction(function () use ($order, $user, $partner) {
-            $previousStatus = $order->status;
-
             $order->update([
-                'status' => OrderStatus::Confirmee,
                 'validated_at' => now(),
                 'delivery_partner_id' => $partner->id,
             ]);
 
             OrderStatusHistory::create([
                 'order_id' => $order->id,
-                'status' => OrderStatus::Confirmee->value,
-                'notes' => 'Commande validée par l\'admin',
+                'status' => $order->status->value,
+                'notes' => 'Commande validée par l\'admin — transmission Cathedis',
                 'user_id' => $user->id,
             ]);
 
-            $trackingRef = $this->cathedis->dispatch($order->fresh(['client', 'items', 'deliveryPartner']), $partner);
-
-            $order->update([
-                'status' => OrderStatus::Expediee,
-                'partner_tracking_ref' => $trackingRef,
-                'sent_to_partner_at' => now(),
-            ]);
-
-            OrderStatusHistory::create([
-                'order_id' => $order->id,
-                'status' => OrderStatus::Expediee->value,
-                'notes' => "Transmise au partenaire {$partner->name}".($trackingRef ? " — Ref. {$trackingRef}" : ''),
-                'user_id' => $user->id,
-            ]);
-
-            $order->refresh();
-            $this->commissionService->syncAfterStatusChange($order, $previousStatus, OrderStatus::Expediee);
-
-            return $order;
+            return $this->dispatchToPartner($order, $user, $partner);
         });
+    }
+
+    private function retryPartnerDispatch(Order $order, User $user, DeliveryPartner $partner): Order
+    {
+        $this->assertReadyForPartnerDispatch($order, $partner);
+
+        return DB::transaction(function () use ($order, $user, $partner) {
+            if ($order->delivery_partner_id !== $partner->id) {
+                $order->update(['delivery_partner_id' => $partner->id]);
+            }
+
+            return $this->dispatchToPartner($order->fresh(['client', 'items', 'deliveryPartner']), $user, $partner);
+        });
+    }
+
+    private function dispatchToPartner(Order $order, User $user, DeliveryPartner $partner): Order
+    {
+        $trackingRef = $this->cathedis->dispatch($order->fresh(['client', 'items', 'deliveryPartner']), $partner);
+
+        $order->update([
+            'partner_tracking_ref' => $trackingRef,
+            'sent_to_partner_at' => now(),
+            'validated_at' => $order->validated_at ?? now(),
+        ]);
+
+        OrderStatusHistory::create([
+            'order_id' => $order->id,
+            'status' => $order->status->value,
+            'notes' => "Transmise au partenaire {$partner->name}".($trackingRef ? " — Ref. {$trackingRef}" : ''),
+            'user_id' => $user->id,
+        ]);
+
+        $order->refresh();
+
+        if ($partner->isCathedis()) {
+            $this->cathedisStatusSync->syncOrder($order);
+            $order->refresh();
+        }
+
+        return $order;
     }
 
     public function completeDelivery(Order $order, User $user, array $data): Order

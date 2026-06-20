@@ -26,6 +26,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class OrderController extends Controller
@@ -57,7 +58,7 @@ class OrderController extends Controller
     public function edit(Order $order): View
     {
         $this->authorizeOrder($order);
-        abort_unless($order->canBeEditedInForm(), 403, 'Cette commande ne peut plus être modifiée.');
+        abort_unless($order->canBeEditedInForm(), 403, $this->orderEditDeniedMessage($order));
 
         return view('orders.create', $this->orderFormViewData($order));
     }
@@ -78,6 +79,8 @@ class OrderController extends Controller
                 'product_id' => $item->product_id,
                 'quantity' => $item->quantity,
                 'unit_price' => (float) $item->unit_price,
+                'product_image' => $item->product_image,
+                'product_image_url' => $item->productImageUrl(),
             ])->values()->all();
         }
 
@@ -132,7 +135,8 @@ class OrderController extends Controller
             'commercials' => User::where('role', UserRole::Commercial)->where('is_active', true)->get(),
             'livreurs' => User::where('role', UserRole::Livreur)->where('is_active', true)->get(),
             'paymentModes' => PaymentMode::cases(),
-            'previewReference' => $order?->reference ?? Order::generateReference(),
+            'previewReference' => $order?->reference ?? Order::previewReference(),
+            'previewDeliveryReference' => $order?->partner_tracking_ref,
             'defaultDeliveryCost' => (float) Setting::get('delivery_fee', 0),
             'isCommercial' => $user->isCommercial(),
             'initialItems' => $initialItems ?? [],
@@ -175,7 +179,6 @@ class OrderController extends Controller
             'client_name' => 'nullable|string|max:255',
             'client_phone' => 'nullable|string|max:50',
             'client_address' => 'nullable|string|max:500',
-            'update_client_address' => 'nullable|boolean',
             'city_id' => 'nullable|exists:cities,id',
             'order_date' => 'nullable|date',
             'commercial_id' => 'nullable|exists:users,id',
@@ -190,9 +193,14 @@ class OrderController extends Controller
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_price' => 'required|numeric|min:0',
+            'items.*.product_image' => ImageUpload::RULE,
+            'items.*.existing_product_image' => 'nullable|string|max:255',
             'submit_action' => 'nullable|in:draft,submit',
-            'product_image' => ImageUpload::RULE,
         ]);
+
+        foreach (array_keys($validated['items']) as $index) {
+            ImageUpload::assertValidUpload($request, "items.{$index}.product_image");
+        }
 
         if ($request->boolean('manual_client')) {
             $validated['client_id'] = null;
@@ -215,8 +223,17 @@ class OrderController extends Controller
             $request->validate([
                 'shipping_remark' => 'required|string|max:2000',
             ]);
-            ImageUpload::assertValidUpload($request, 'product_image');
-            $request->validate(['product_image' => 'required|'.ImageUpload::RULE]);
+
+            foreach (array_keys($validated['items']) as $index) {
+                $hasNewPhoto = $request->hasFile("items.{$index}.product_image");
+                $hasExistingPhoto = filled($request->input("items.{$index}.existing_product_image"));
+
+                if (! $hasNewPhoto && ! $hasExistingPhoto) {
+                    throw ValidationException::withMessages([
+                        "items.{$index}.product_image" => 'Ajoutez une photo pour chaque produit.',
+                    ]);
+                }
+            }
         }
 
         return $validated;
@@ -224,79 +241,63 @@ class OrderController extends Controller
 
     private function resolveClientId(array $validated, User $user): int
     {
+        $clientData = $this->clientAttributesFromOrder($validated, $user);
+
         if (! empty($validated['client_id'])) {
             $client = Client::findOrFail($validated['client_id']);
-
-            $updates = [];
-
-            if (! empty($validated['city_id'])) {
-                $city = City::find($validated['city_id']);
-                $updates['city_id'] = $city?->id;
-                $updates['city'] = $city?->name;
-            }
-
-            if (! empty($validated['client_phone'])) {
-                $updates['phone'] = $validated['client_phone'];
-            }
-
-            $shouldUpdateAddress = ! empty($validated['client_address'])
-                && (
-                    ! $user->isCommercial()
-                    || ! empty($validated['update_client_address'])
-                );
-
-            if ($shouldUpdateAddress) {
-                $updates['address'] = $validated['client_address'];
-            }
-
-            if ($updates !== []) {
-                $client->update($updates);
-            }
+            $client->update($clientData);
 
             return $client->id;
         }
 
-        $city = City::findOrFail($validated['city_id']);
-
-        $commercialId = $validated['commercial_id'] ?? ($user->isCommercial() ? $user->id : null);
-        $paymentMode = filled($validated['payment_mode'] ?? null)
-            ? PaymentMode::from($validated['payment_mode'])
-            : null;
-
-        $attributes = [
-            'name' => $validated['client_name'],
-            'phone' => $validated['client_phone'] ?? null,
-            'address' => $validated['client_address'] ?? null,
-            'city_id' => $city->id,
-            'city' => $city->name,
-            'commercial_id' => $commercialId,
-            'payment_mode' => $paymentMode,
-            'prospection' => ProspectionSource::Terrain,
-            'is_active' => true,
-        ];
-
         if (! empty($validated['client_phone'])) {
-            $client = Client::query()
+            $existing = Client::query()
                 ->where('phone', $validated['client_phone'])
                 ->first();
 
-            if ($client) {
-                $client->update([
-                    'name' => $attributes['name'],
-                    'address' => $attributes['address'],
-                    'city_id' => $attributes['city_id'],
-                    'city' => $attributes['city'],
-                    'commercial_id' => $commercialId ?? $client->commercial_id,
-                    'payment_mode' => $paymentMode ?? $client->payment_mode,
-                ]);
+            if ($existing) {
+                $existing->update($clientData);
 
-                return $client->id;
+                return $existing->id;
             }
         }
 
-        $client = Client::create($attributes);
+        $client = Client::create(array_merge($clientData, [
+            'prospection' => ProspectionSource::Terrain,
+            'is_active' => true,
+        ]));
 
         return $client->id;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function clientAttributesFromOrder(array $validated, User $user): array
+    {
+        $city = ! empty($validated['city_id'])
+            ? City::find($validated['city_id'])
+            : null;
+
+        $commercialId = $validated['commercial_id'] ?? ($user->isCommercial() ? $user->id : null);
+
+        $attributes = [
+            'name' => $validated['client_name'] ?? null,
+            'phone' => $validated['client_phone'] ?? null,
+            'address' => $validated['client_address'] ?? null,
+            'city_id' => $city?->id,
+            'city' => $city?->name,
+            'commercial_id' => $commercialId,
+        ];
+
+        if (filled($validated['payment_mode'] ?? null)) {
+            $attributes['payment_mode'] = PaymentMode::from($validated['payment_mode']);
+        }
+
+        return array_filter(
+            $attributes,
+            fn ($value) => $value !== null && $value !== ''
+        );
     }
 
     public function store(Request $request): RedirectResponse
@@ -316,7 +317,7 @@ class OrderController extends Controller
             $subtotal = 0;
             $items = [];
 
-            foreach ($validated['items'] as $item) {
+            foreach ($validated['items'] as $index => $item) {
                 $product = Product::findOrFail($item['product_id']);
                 $unitPrice = (float) $item['unit_price'];
                 $lineTotal = $unitPrice * $item['quantity'];
@@ -326,6 +327,7 @@ class OrderController extends Controller
                     'quantity' => $item['quantity'],
                     'unit_price' => $unitPrice,
                     'total' => $lineTotal,
+                    'product_image' => $this->resolveItemProductImage($request, $index, $item),
                 ];
             }
 
@@ -347,7 +349,6 @@ class OrderController extends Controller
                 'notes' => $validated['notes'] ?? null,
                 'internal_notes' => $validated['internal_notes'] ?? null,
                 'shipping_remark' => $validated['shipping_remark'] ?? null,
-                'product_image' => ImageUpload::storeFromRequest($request, 'product_image', 'order-product-images'),
                 'created_by' => auth()->id(),
             ]);
 
@@ -356,6 +357,7 @@ class OrderController extends Controller
                     'order_id' => $order->id,
                     'product_id' => $item['product']->id,
                     'product_name' => $item['product']->name,
+                    'product_image' => $item['product_image'],
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
                     'total' => $item['total'],
@@ -399,18 +401,14 @@ class OrderController extends Controller
         return redirect()
             ->route('orders.bon', $order)
             ->with('success', $user->isCommercial()
-                ? (empty($validated['client_id'])
-                    ? 'Commande enregistrée. Le client a été ajouté à la fiche clients.'
-                    : 'Commande enregistrée. Vérifiez le récapitulatif, puis envoyez à l\'admin.')
-                : (empty($validated['client_id'])
-                    ? 'Commande créée. Le client a été enregistré dans la fiche clients.'
-                    : 'Commande créée.'));
+                ? 'Commande enregistrée. Les informations client ont été synchronisées avec la fiche clients.'
+                : 'Commande créée. Les informations client ont été synchronisées avec la fiche clients.');
     }
 
     public function update(Request $request, Order $order): RedirectResponse
     {
         $this->authorizeOrder($order);
-        abort_unless($order->canBeEditedInForm(), 403, 'Cette commande ne peut plus être modifiée.');
+        abort_unless($order->canBeEditedInForm(), 403, $this->orderEditDeniedMessage($order));
 
         $user = auth()->user();
         $validated = $this->validateOrderRequest($request, $user->isCommercial());
@@ -428,7 +426,7 @@ class OrderController extends Controller
             $subtotal = 0;
             $items = [];
 
-            foreach ($validated['items'] as $item) {
+            foreach ($validated['items'] as $index => $item) {
                 $product = Product::findOrFail($item['product_id']);
                 $unitPrice = (float) $item['unit_price'];
                 $lineTotal = $unitPrice * $item['quantity'];
@@ -438,6 +436,7 @@ class OrderController extends Controller
                     'quantity' => $item['quantity'],
                     'unit_price' => $unitPrice,
                     'total' => $lineTotal,
+                    'product_image' => $this->resolveItemProductImage($request, $index, $item),
                 ];
             }
 
@@ -459,11 +458,11 @@ class OrderController extends Controller
                 'shipping_remark' => $validated['shipping_remark'] ?? $order->shipping_remark,
             ]);
 
-            if ($path = ImageUpload::storeFromRequest($request, 'product_image', 'order-product-images')) {
-                if ($order->product_image) {
-                    Storage::disk('public')->delete($order->product_image);
+            $keptImages = collect($items)->pluck('product_image')->filter()->all();
+            foreach ($previousItems as $previousItem) {
+                if ($previousItem->product_image && ! in_array($previousItem->product_image, $keptImages, true)) {
+                    Storage::disk('public')->delete($previousItem->product_image);
                 }
-                $order->update(['product_image' => $path]);
             }
 
             $order->items()->delete();
@@ -473,6 +472,7 @@ class OrderController extends Controller
                     'order_id' => $order->id,
                     'product_id' => $item['product']->id,
                     'product_name' => $item['product']->name,
+                    'product_image' => $item['product_image'],
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
                     'total' => $item['total'],
@@ -488,8 +488,8 @@ class OrderController extends Controller
         });
 
         $message = $user->isCommercial()
-            ? 'Commande mise à jour. Vérifiez le récapitulatif avant envoi.'
-            : 'Commande mise à jour.';
+            ? 'Commande mise à jour. Les informations client ont été synchronisées avec la fiche clients.'
+            : 'Commande mise à jour. Les informations client ont été synchronisées avec la fiche clients.';
 
         return redirect()
             ->route('orders.bon', $order)
@@ -554,9 +554,17 @@ class OrderController extends Controller
             return back()->withErrors(['workflow' => $e->getMessage()]);
         }
 
-        $message = 'Commande validée et transmise à Cathedis.';
+        $message = 'Commande transmise à Cathedis.';
         if ($order->partner_tracking_ref) {
-            $message .= ' Réf. suivi : '.$order->partner_tracking_ref;
+            $message .= ' Réf livraison : '.$order->partner_tracking_ref.'.';
+        }
+        if ($order->cathedis_status_code) {
+            $message .= ' Statut Cathedis : '.$order->cathedis_status_code;
+            if ($order->status === \App\Enums\OrderStatus::Confirmee) {
+                $message .= ' — commande confirmée.';
+            }
+        } else {
+            $message .= ' Le statut sera synchronisé automatiquement.';
         }
 
         return back()->with('success', $message);
@@ -685,38 +693,36 @@ class OrderController extends Controller
         abort_unless($item->product_id, 422, 'Ce produit ne peut pas recevoir d\'image.');
 
         ImageUpload::assertValidUpload($request, 'product_image');
-        $request->validate(['product_image' => ImageUpload::RULE]);
+        $request->validate(['product_image' => 'required|'.ImageUpload::RULE]);
 
-        $product = Product::findOrFail($item->product_id);
+        $path = ImageUpload::storeFromRequest($request, 'product_image', 'order-product-images');
 
-        if ($product->image) {
-            Storage::disk('public')->delete($product->image);
+        if ($item->product_image) {
+            Storage::disk('public')->delete($item->product_image);
         }
 
-        $product->update([
-            'image' => ImageUpload::storeFromRequest($request, 'product_image', 'product-images'),
-        ]);
-
-        if ($path = $product->image) {
-            if ($order->product_image) {
-                Storage::disk('public')->delete($order->product_image);
-            }
-            $order->update(['product_image' => $path]);
-        }
-
-        if ($path = ImageUpload::storeFromRequest($request, 'product_image', 'order-product-images')) {
-            if ($order->product_image) {
-                Storage::disk('public')->delete($order->product_image);
-            }
-            $order->update(['product_image' => $path]);
-        }
+        $item->update(['product_image' => $path]);
 
         $redirectRoute = $request->input('return_to') === 'print'
             ? route('orders.delivery-note', $order)
             : route('orders.bon', $order);
 
         return redirect($redirectRoute)
-            ->with('success', 'Image produit enregistrée pour « '.$product->name.' ».');
+            ->with('success', 'Photo enregistrée pour « '.$item->product_name.' ».');
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private function resolveItemProductImage(Request $request, int $index, array $item): ?string
+    {
+        if ($path = ImageUpload::storeFromRequest($request, "items.{$index}.product_image", 'order-product-images')) {
+            return $path;
+        }
+
+        $existing = $item['existing_product_image'] ?? null;
+
+        return filled($existing) ? $existing : null;
     }
 
     public function updateShippingRemark(Request $request, Order $order): RedirectResponse
@@ -731,6 +737,21 @@ class OrderController extends Controller
         $order->update($validated);
 
         return back()->with('success', 'Remarque NB enregistrée.');
+    }
+
+    private function orderEditDeniedMessage(Order $order): string
+    {
+        $user = auth()->user();
+
+        if ($user?->isCommercial() && $order->hasBeenValidatedByAdmin()) {
+            return 'Cette commande a été validée par l\'administrateur et ne peut plus être modifiée.';
+        }
+
+        if ($user?->isCommercial() && $order->isAwaitingAdminValidation()) {
+            return 'Cette commande est en attente de validation admin et ne peut plus être modifiée.';
+        }
+
+        return 'Cette commande ne peut plus être modifiée.';
     }
 
     private function authorizeOrder(Order $order): void

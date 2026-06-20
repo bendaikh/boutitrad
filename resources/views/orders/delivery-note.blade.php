@@ -63,10 +63,12 @@
         <div>
             <div class="brand">BELDI-MALAKI</div>
             <p class="meta" style="margin-top: 6px; font-weight: bold; color: #1e293b;">Bon de commande validé</p>
-            <p class="meta">Réf. {{ $order->reference }}</p>
+            <p class="meta">Réf bon : <strong>{{ $order->reference }}</strong></p>
             <p class="meta">Date : {{ ($order->validated_at ?? $order->created_at)->format('d/m/Y H:i') }}</p>
-            @if($order->partner_tracking_ref)
-                <p class="meta">Ref. livraison : <strong>{{ $order->partner_tracking_ref }}</strong></p>
+            @if($order->deliveryReference())
+                <p class="meta">Réf livraison : <strong>{{ $order->deliveryReference() }}</strong>@if($order->deliveryPartner) ({{ $order->deliveryPartner->name }})@endif</p>
+            @else
+                <p class="meta">Réf livraison : —</p>
             @endif
         </div>
         <div class="meta" style="text-align: right;">
@@ -99,7 +101,7 @@
         </thead>
         <tbody>
             @foreach($order->items as $item)
-                @php $hasImage = (bool) $item->product?->imageUrl(); @endphp
+                @php $hasImage = (bool) $item->productImageUrl(); @endphp
                 <tr>
                     <td class="col-image"></td>
                     <td>
@@ -129,7 +131,7 @@
                             @endif
                             @if($hasImage)
                                 <div class="image-box preview">
-                                    <img src="{{ $item->product->imageUrl() }}" alt="{{ $item->product_name }}">
+                                    <img src="{{ $item->productImageUrl() }}" alt="{{ $item->product_name }}">
                                 </div>
                             @endif
                         </div>

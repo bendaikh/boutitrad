@@ -77,15 +77,6 @@ return [
                     ],
                 ],
                 [
-                    'label' => 'Commerciaux',
-                    'permissions' => [
-                        ['key' => 'commercials.view', 'label' => 'Voir', 'short' => 'V'],
-                        ['key' => 'commercials.create', 'label' => 'Saisir', 'short' => 'S'],
-                        ['key' => 'commercials.update', 'label' => 'Modifier', 'short' => 'M'],
-                        ['key' => 'commercials.delete', 'label' => 'Supprimer', 'short' => 'X'],
-                    ],
-                ],
-                [
                     'label' => 'Balance',
                     'permissions' => [
                         ['key' => 'sales.balance.view', 'label' => 'Voir', 'short' => 'V'],
@@ -93,12 +84,27 @@ return [
                     ],
                 ],
                 [
-                    'label' => 'Paiement',
+                    'label' => 'Paie Commerciaux',
                     'permissions' => [
                         ['key' => 'payments.view', 'label' => 'Voir', 'short' => 'V'],
                         ['key' => 'payments.create', 'label' => 'Saisir', 'short' => 'S'],
                         ['key' => 'payments.update', 'label' => 'Modifier', 'short' => 'M'],
                         ['key' => 'payments.delete', 'label' => 'Supprimer', 'short' => 'X'],
+                    ],
+                ],
+            ],
+        ],
+        [
+            'key' => 'configuration',
+            'label' => 'Configuration',
+            'sections' => [
+                [
+                    'label' => 'Commerciaux',
+                    'permissions' => [
+                        ['key' => 'commercials.view', 'label' => 'Voir', 'short' => 'V'],
+                        ['key' => 'commercials.create', 'label' => 'Saisir', 'short' => 'S'],
+                        ['key' => 'commercials.update', 'label' => 'Modifier', 'short' => 'M'],
+                        ['key' => 'commercials.delete', 'label' => 'Supprimer', 'short' => 'X'],
                     ],
                 ],
             ],

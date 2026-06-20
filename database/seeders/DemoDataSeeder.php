@@ -106,7 +106,9 @@ class DemoDataSeeder extends Seeder
             ]),
         ];
 
-        Order::where('reference', 'like', 'CMD-%')->delete();
+        Order::where('reference', 'like', 'CMD-%')
+            ->orWhere('reference', 'like', 'CMD-DEMO-%')
+            ->delete();
         $this->seedYearlyOrders($adminId, $livreur, $clients, $products);
 
         Expense::firstOrCreate(['title' => 'Loyer bureau'], [
@@ -173,7 +175,7 @@ class DemoDataSeeder extends Seeder
                 $product = $products[($sequence - 1) % count($products)];
                 $qty = rand(1, 3);
                 $total = $product->sale_price * $qty;
-                $reference = sprintf('CMD-DEMO-%04d-%02d-%04d', $year, $month, $sequence);
+                $reference = sprintf('BN-%d%04d', $year, $sequence);
 
                 $paymentModes = ['especes', 'cheque', 'virement', 'credit'];
                 $paymentMode = $paymentModes[$sequence % count($paymentModes)];

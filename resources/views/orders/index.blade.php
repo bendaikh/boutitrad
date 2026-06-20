@@ -166,7 +166,7 @@
                 </div>
             </x-slot:toolbar>
 
-            <x-admin.data-table min-width="1680px" compact class="flex-1 min-h-0">
+            <x-admin.data-table min-width="1780px" compact class="flex-1 min-h-0">
                 @if($items->hasPages())
                     <x-slot:footer>{{ $items->links() }}</x-slot:footer>
                 @endif
@@ -174,6 +174,7 @@
                     <tr>
                         <th class="text-center">Date cmd</th>
                         <th class="text-left">Réf Bon</th>
+                        <th class="text-left">Réf livraison</th>
                         <th class="text-left">ID client</th>
                         <th class="text-left">Nom client</th>
                         <th class="text-left">Ville livraison</th>
@@ -184,6 +185,7 @@
                         <th class="text-right">Prix u</th>
                         <th class="text-right">Total</th>
                         <th class="text-center">Statut</th>
+                        <th class="text-center">Statut Cathedis</th>
                         <th class="text-center">Règl.</th>
                         <th class="text-left">Commercial</th>
                     </tr>
@@ -206,15 +208,16 @@
                             @dblclick="if ({{ $canView ? 'true' : 'false' }}) window.location.href = '{{ route('orders.bon', $order) }}'"
                         >
                             <td class="admin-table-cell text-center text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ $order->created_at->format('d/m/Y') }}</td>
-                            <td class="admin-table-cell">
-                                <a href="{{ route('orders.bon', $order) }}" class="link-brand font-medium" @click.stop>{{ $order->reference }}</a>
+                            <td class="admin-table-cell text-left">
+                                <a href="{{ route('orders.bon', $order) }}" class="link-brand font-medium font-mono text-xs" @click.stop>{{ $order->reference }}</a>
                             </td>
-                            <td class="admin-table-cell-muted font-mono text-xs">{{ $client->formattedId() }}</td>
-                            <td class="admin-table-cell font-medium">{{ $client->name }}</td>
-                            <td class="admin-table-cell">{{ $client->city ?? '—' }}</td>
-                            <td class="admin-table-cell-muted font-mono text-xs">{{ $item->product?->sku ?? '—' }}</td>
-                            <td class="admin-table-cell">{{ $item->product_name }}</td>
-                            <td class="admin-table-cell">{{ $item->product?->category?->name ?? '—' }}</td>
+                            <td class="admin-table-cell-muted text-left font-mono text-xs">{{ $order->deliveryReference() ?? '—' }}</td>
+                            <td class="admin-table-cell-muted text-left font-mono text-xs">{{ $client->formattedId() }}</td>
+                            <td class="admin-table-cell text-left font-medium">{{ $client->name }}</td>
+                            <td class="admin-table-cell text-left">{{ $client->city ?? '—' }}</td>
+                            <td class="admin-table-cell-muted text-left font-mono text-xs">{{ $item->product?->sku ?? '—' }}</td>
+                            <td class="admin-table-cell text-left">{{ $item->product_name }}</td>
+                            <td class="admin-table-cell text-left">{{ $item->product?->category?->name ?? '—' }}</td>
                             <td class="admin-table-cell text-center tabular-nums">{{ $item->quantity }}</td>
                             <td class="admin-table-cell text-right tabular-nums">{{ number_format($item->unit_price, 2, ',', ' ') }} DH</td>
                             <td class="admin-table-cell text-right tabular-nums font-medium">{{ number_format($item->total, 2, ',', ' ') }} DH</td>
@@ -222,15 +225,18 @@
                                 <x-admin.status-badge :status="$order->status" />
                             </td>
                             <td class="admin-table-cell text-center">
+                                <x-admin.cathedis-status-badge :order="$order" compact />
+                            </td>
+                            <td class="admin-table-cell text-center">
                                 <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium {{ $paymentClass }}">
                                     {{ $order->paymentStatusLabel() }}
                                 </span>
                             </td>
-                            <td class="admin-table-cell">{{ $order->commercial?->name ?? '—' }}</td>
+                            <td class="admin-table-cell text-left">{{ $order->commercial?->name ?? '—' }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="14" class="admin-table-cell text-center text-slate-500 dark:text-slate-400">Aucune ligne de commande</td>
+                            <td colspan="16" class="admin-table-cell text-center text-slate-500 dark:text-slate-400">Aucune ligne de commande</td>
                         </tr>
                     @endforelse
                 </tbody>

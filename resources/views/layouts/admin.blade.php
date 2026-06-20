@@ -21,15 +21,15 @@
     $openMenu = '';
     if (request()->routeIs('products.*', 'categories.*', 'stock.*')) {
         $openMenu = 'stock';
-    } elseif (request()->routeIs('orders.*', 'commercials.*', 'sales.*')) {
+    } elseif (request()->routeIs('orders.*', 'sales.*')) {
         $openMenu = 'ventes';
     } elseif (request()->routeIs('clients.*')) {
         $openMenu = 'clients';
-    } elseif (request()->routeIs('reports.*', 'finance.*')) {
+    } elseif (request()->routeIs('reports.*', 'charges.*')) {
         $openMenu = 'etat';
     } elseif (request()->routeIs('deliveries.*')) {
         $openMenu = 'livraison';
-    } elseif (request()->routeIs('settings.*', 'users.*')) {
+    } elseif (request()->routeIs('settings.*', 'users.*', 'commercials.*')) {
         $openMenu = 'configuration';
     }
 @endphp
@@ -101,20 +101,17 @@
                         label="Ventes"
                         menu-key="ventes"
                         icon="cart"
-                        :active="request()->routeIs('orders.*', 'commercials.*', 'sales.*')"
+                        :active="request()->routeIs('orders.*', 'sales.*')"
                         :open="$openMenu === 'ventes'"
                     >
                         @if($user->hasAnyPermission(['orders.view', 'orders.validate', 'orders.create', 'orders.update', 'orders.delete']))
                             <x-admin.nav-sublink route="orders.index" icon="cart">Commandes</x-admin.nav-sublink>
                         @endif
-                        @if($user->hasAnyPermission(['commercials.view', 'commercials.create', 'commercials.update', 'commercials.delete']))
-                            <x-admin.nav-sublink route="commercials.index" icon="briefcase">{{ $user->isCommercial() ? 'Mon activité' : 'Commerciaux' }}</x-admin.nav-sublink>
-                        @endif
                         @if($user->hasAnyPermission(['sales.balance.view', 'sales.balance.print']))
                             <x-admin.nav-sublink route="sales.balance" icon="money">Balance</x-admin.nav-sublink>
                         @endif
                         @if($user->hasAnyPermission(['payments.view', 'payments.create', 'payments.update', 'payments.delete']))
-                            <x-admin.nav-sublink route="sales.payments" icon="payment">Paiement</x-admin.nav-sublink>
+                            <x-admin.nav-sublink route="sales.payments" icon="payment">Paie Commerciaux</x-admin.nav-sublink>
                         @endif
                     </x-admin.nav-group>
                 @endif
@@ -138,23 +135,30 @@
                         label="Etat"
                         menu-key="etat"
                         icon="report"
-                        :active="request()->routeIs('reports.*', 'finance.*')"
+                        :active="request()->routeIs('reports.*', 'charges.*')"
                         :open="$openMenu === 'etat'"
                     >
                         <x-admin.nav-sublink route="reports.index" icon="report">Rapports</x-admin.nav-sublink>
-                        <x-admin.nav-sublink route="finance.index" icon="money">Finance</x-admin.nav-sublink>
+                        <x-admin.nav-sublink route="charges.index" icon="money">Charge</x-admin.nav-sublink>
                     </x-admin.nav-group>
+                @endif
 
+                @if($user->canAccessConfigurationModule())
                     <x-admin.nav-group
                         label="Configuration"
                         menu-key="configuration"
                         icon="cog"
-                        :active="request()->routeIs('settings.*', 'users.*')"
+                        :active="request()->routeIs('settings.*', 'users.*', 'commercials.*')"
                         :open="$openMenu === 'configuration'"
                     >
-                        <x-admin.nav-sublink route="settings.index" icon="building">Fiche Société</x-admin.nav-sublink>
-                        <x-admin.nav-sublink route="users.index" :match="['users.index', 'users.create', 'users.edit']" icon="shield">Utilisateurs</x-admin.nav-sublink>
-                        <x-admin.nav-sublink route="settings.permissions" icon="lock">Autorisations</x-admin.nav-sublink>
+                        @if($user->hasAnyPermission(['commercials.view', 'commercials.create', 'commercials.update', 'commercials.delete']))
+                            <x-admin.nav-sublink route="commercials.index" icon="briefcase">{{ $user->isCommercial() ? 'Mon activité' : 'Commerciaux' }}</x-admin.nav-sublink>
+                        @endif
+                        @if($user->isSuperAdmin())
+                            <x-admin.nav-sublink route="settings.index" icon="building">Fiche Société</x-admin.nav-sublink>
+                            <x-admin.nav-sublink route="users.index" :match="['users.index', 'users.create', 'users.edit']" icon="shield">Utilisateurs</x-admin.nav-sublink>
+                            <x-admin.nav-sublink route="settings.permissions" icon="lock">Autorisations</x-admin.nav-sublink>
+                        @endif
                     </x-admin.nav-group>
                 @endif
             </nav>
@@ -210,7 +214,11 @@
                 </div>
             </header>
 
-            <main class="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6">
+            <main @class([
+                'flex-1 min-h-0 p-4 sm:p-6 flex flex-col',
+                'overflow-hidden' => $fullHeight,
+                'overflow-y-auto' => ! $fullHeight,
+            ])>
                 @if(session('success'))
                     <div
                         x-data="{ show: true }"
@@ -219,7 +227,7 @@
                         x-transition:leave-start="opacity-100 translate-y-0"
                         x-transition:leave-end="opacity-0 -translate-y-1"
                         x-init="setTimeout(() => show = false, 2000)"
-                        class="mb-4 admin-flash-success"
+                        class="shrink-0 mb-4 admin-flash-success"
                     >{{ session('success') }}</div>
                 @endif
                 @if(session('error'))
@@ -230,11 +238,13 @@
                         x-transition:leave-start="opacity-100 translate-y-0"
                         x-transition:leave-end="opacity-0 -translate-y-1"
                         x-init="setTimeout(() => show = false, 4000)"
-                        class="mb-4 admin-flash-error"
+                        class="shrink-0 mb-4 admin-flash-error"
                     >{{ session('error') }}</div>
                 @endif
 
-                {{ $slot }}
+                <div @class(['flex-1 min-h-0 flex flex-col' => $fullHeight])>
+                    {{ $slot }}
+                </div>
             </main>
         </div>
     </div>

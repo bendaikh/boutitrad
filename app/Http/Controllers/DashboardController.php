@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Services\DashboardService;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -14,27 +14,44 @@ class DashboardController extends Controller
     public function index(Request $request): View
     {
         $user = auth()->user();
-        $selectedMonth = $request->input('month', now()->format('Y-m'));
 
-        try {
-            $monthDate = Carbon::createFromFormat('Y-m', $selectedMonth)->startOfMonth();
-        } catch (\Throwable) {
-            $monthDate = now()->startOfMonth();
-            $selectedMonth = $monthDate->format('Y-m');
+        if ($user->isCommercial()) {
+            return view('dashboard.commercial', $this->commercialDashboardData($user));
         }
 
-        $year = (int) $monthDate->year;
-        $month = (int) $monthDate->month;
+        [$dateFrom, $dateTo] = $this->dashboard->resolveDateRange(
+            $request->input('date_from'),
+            $request->input('date_to'),
+        );
+
+        [$commercialDateFrom, $commercialDateTo, $commercialMonth] = $this->dashboard->resolveMonthRange(
+            $request->input('commercial_month'),
+        );
 
         return view('dashboard', [
             'stats' => $this->dashboard->stats($user),
-            'orderDistributionChart' => $this->dashboard->orderDistributionChart($user),
             'alerts' => $this->dashboard->alerts($user),
-            'selectedMonth' => $selectedMonth,
-            'monthLabel' => $this->dashboard->monthLabel($year, $month),
-            'commercialSalesByMonth' => $this->dashboard->commercialSalesByMonth($user, $year, $month),
-            'topProductsByMonth' => $this->dashboard->topProductsByMonth($user, $year, $month),
-            'activeCitiesByMonth' => $this->dashboard->activeCitiesByMonth($user, $year, $month),
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'commercialMonth' => $commercialMonth,
+            'commercialDateFrom' => $commercialDateFrom,
+            'commercialDateTo' => $commercialDateTo,
+            'orderLines' => $this->dashboard->orderLinesByDateRange($request, $user),
+            'commercialState' => $this->dashboard->commercialStateByDateRange($commercialDateFrom, $commercialDateTo, $user),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function commercialDashboardData(User $commercial): array
+    {
+        return [
+            'commercial' => $commercial,
+            'stats' => $this->dashboard->commercialStats($commercial),
+            'orders' => $this->dashboard->commercialOrders($commercial),
+            'stockProducts' => $this->dashboard->commercialStock(),
+            'clients' => $this->dashboard->commercialClients($commercial),
+        ];
     }
 }

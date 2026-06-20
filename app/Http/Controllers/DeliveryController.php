@@ -8,6 +8,7 @@ use App\Models\DeliveryPartner;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\CathedisApiService;
+use App\Services\CathedisStatusSyncService;
 use App\Services\OrderWorkflowService;
 use App\Support\CathedisConfig;
 use Illuminate\Http\RedirectResponse;
@@ -57,6 +58,20 @@ class DeliveryController extends Controller
         $count = $cathedis->syncCities();
 
         return back()->with('success', "Villes Cathedis synchronisées ({$count} villes disponibles).");
+    }
+
+    public function syncCathedisOrders(CathedisStatusSyncService $sync): RedirectResponse
+    {
+        $summary = $sync->syncPendingOrders();
+
+        return back()->with(
+            'success',
+            sprintf(
+                'Statuts Cathedis synchronisés : %d commande(s) vérifiée(s), %d mise(s) à jour.',
+                $summary['checked'],
+                $summary['updated'],
+            ),
+        );
     }
 
     public function testCathedisConnection(CathedisApiService $cathedis): RedirectResponse

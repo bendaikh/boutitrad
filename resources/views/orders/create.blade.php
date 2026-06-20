@@ -38,13 +38,26 @@
                     >
                 </div>
                 <div>
-                    <label class="admin-order-form-label">Réf bon de commande</label>
+                    <label class="admin-order-form-label">Réf bon</label>
                     <input
                         type="text"
                         value="{{ $previewReference }}"
                         readonly
                         class="admin-order-form-readonly font-mono text-xs"
                     >
+                </div>
+                <div>
+                    <label class="admin-order-form-label">Réf livraison</label>
+                    <input
+                        type="text"
+                        value="{{ $previewDeliveryReference ?? '—' }}"
+                        readonly
+                        class="admin-order-form-readonly font-mono text-xs"
+                        title="Référence attribuée par la société de livraison après validation"
+                    >
+                    @unless($previewDeliveryReference)
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Attribuée après validation Cathedis</p>
+                    @endunless
                 </div>
                 <div x-show="!manualClient" x-cloak>
                     <label for="client_id" class="admin-order-form-label">Client existant</label>
@@ -218,7 +231,7 @@
                         placeholder="Quartier, rue, n°…"
                     >
                     <p x-show="!isNewClient && clientId && !editClientAddress" x-cloak class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Adresse enregistrée sur la fiche client. Cochez « Modifier l'adresse » pour la changer.
+                        Adresse enregistrée sur la fiche client. Cochez « Modifier l'adresse » pour la mettre à jour (synchronisée automatiquement à l'enregistrement).
                     </p>
                     @error('client_address')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
                 </div>
@@ -344,6 +357,39 @@
                             title="Supprimer la ligne"
                         >&times;</button>
                     </div>
+                    <div class="col-span-12">
+                        <div class="flex flex-wrap items-start gap-3 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/30 px-3 py-2">
+                            <div class="shrink-0 w-16 h-16 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 overflow-hidden flex items-center justify-center">
+                                <img
+                                    x-show="itemImagePreview(item)"
+                                    x-cloak
+                                    :src="itemImagePreview(item)"
+                                    alt="Aperçu produit"
+                                    class="w-full h-full object-cover"
+                                >
+                                <template x-if="! itemImagePreview(item)">
+                                    <svg class="w-7 h-7 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                </template>
+                            </div>
+                            <div class="flex-1 min-w-[12rem]">
+                                <label class="admin-order-form-label">Photo produit</label>
+                                <input
+                                    type="file"
+                                    :name="'items['+index+'][product_image]'"
+                                    accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                                    class="block w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-brand-50 file:text-brand-700 dark:file:bg-brand-900/40 dark:file:text-brand-300"
+                                    @change="previewItemImage(index, $event)"
+                                >
+                                <input
+                                    type="hidden"
+                                    :name="'items['+index+'][existing_product_image]'"
+                                    :value="item.existing_product_image || ''"
+                                >
+                                <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">JPG, PNG ou WebP — max. 5 Mo</p>
+                                <p x-show="item.existing_product_image && ! item.image_preview" class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">Photo déjà enregistrée sur cette ligne</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </template>
 
@@ -361,69 +407,23 @@
 
             @error('items')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
             @error('items.*.product_id')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+            @error('items.*.product_image')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
         </div>
 
         @if($isCommercial || $editing)
         <div class="admin-order-form-bar">
-            <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">Photo produit &amp; NB</h2>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">À compléter avant envoi à l'admin. Vous pourrez tout vérifier sur l'écran suivant.</p>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div>
-                    <label for="product_image" class="admin-order-form-label">Photo du produit</label>
-                    <div class="flex flex-col sm:flex-row gap-4 items-start">
-                        <div class="shrink-0 w-full sm:w-52">
-                            <div class="aspect-square w-full max-w-[13rem] rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 overflow-hidden flex items-center justify-center">
-                                <img
-                                    x-show="productImagePreview"
-                                    x-cloak
-                                    :src="productImagePreview"
-                                    alt="Aperçu produit"
-                                    class="w-full h-full object-cover"
-                                >
-                                @if($editing && $order?->productImageUrl())
-                                    <img
-                                        x-show="!productImagePreview && hasExistingPhoto"
-                                        x-cloak
-                                        src="{{ $order->productImageUrl() }}"
-                                        alt="Photo actuelle"
-                                        class="w-full h-full object-cover"
-                                    >
-                                @endif
-                                <div x-show="!productImagePreview && !hasExistingPhoto" class="text-center px-4 py-6 text-slate-400">
-                                    <svg class="w-10 h-10 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                    <p class="text-[11px] leading-snug">L'aperçu s'affiche ici après sélection du fichier</p>
-                                </div>
-                            </div>
-                            <p x-show="productImagePreview" x-cloak class="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 mt-2">Aperçu de la photo sélectionnée</p>
-                            @if($editing && $order?->productImageUrl())
-                                <p x-show="!productImagePreview" class="text-[10px] text-slate-500 dark:text-slate-400 mt-2">Photo enregistrée — choisissez un fichier pour la remplacer.</p>
-                            @endif
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <input
-                                type="file"
-                                id="product_image"
-                                name="product_image"
-                                accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                                class="block w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-brand-50 file:text-brand-700"
-                                @change="previewProductImage($event)"
-                            >
-                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-2">JPG, PNG ou WebP — max. 2 Mo</p>
-                        </div>
-                    </div>
-                    @error('product_image')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
-                </div>
-                <div>
-                    <label for="shipping_remark" class="admin-order-form-label">NB — Remarque</label>
-                    <textarea
-                        id="shipping_remark"
-                        name="shipping_remark"
-                        rows="4"
-                        placeholder="Ex. taille, couleur, instructions livraison, fragilité…"
-                        class="admin-order-form-input w-full"
-                    >{{ old('shipping_remark', $order?->shipping_remark ?? '') }}</textarea>
-                    @error('shipping_remark')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
-                </div>
+            <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">NB — Remarque livraison</h2>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">À compléter avant envoi à l'admin. Une photo est requise pour chaque produit ci-dessus.</p>
+            <div>
+                <label for="shipping_remark" class="admin-order-form-label">NB — Remarque</label>
+                <textarea
+                    id="shipping_remark"
+                    name="shipping_remark"
+                    rows="4"
+                    placeholder="Ex. taille, couleur, instructions livraison, fragilité…"
+                    class="admin-order-form-input w-full"
+                >{{ old('shipping_remark', $order?->shipping_remark ?? '') }}</textarea>
+                @error('shipping_remark')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
             </div>
         </div>
         @endif
@@ -459,7 +459,6 @@
         const isCommercialUser = @json($isCommercial);
         const editClientAddressDefault = @json((bool) old('update_client_address', false));
         const manualClientDefault = @json((bool) old('manual_client', $isCommercial && ! $editing && ! old('client_id')));
-        const hasExistingPhoto = @json((bool) ($editing && $order?->productImageUrl()));
 
         function buildItem(data = {}) {
             const product = products.find(p => String(p.id) === String(data.product_id || ''));
@@ -471,6 +470,9 @@
                 unit_price: data.unit_price ?? product?.sale_price ?? 0,
                 stock: product?.stock ?? 0,
                 min_stock: product?.min_stock ?? 5,
+                image_preview: null,
+                existing_product_image: data.product_image ?? '',
+                existing_image_url: data.product_image_url ?? null,
             };
         }
 
@@ -500,20 +502,29 @@
             paymentMode: @json(old('payment_mode', $order?->payment_mode?->value ?? '')),
             deliveryCost: @json(old('delivery_cost', $order?->delivery_cost ?? $defaultDeliveryCost)),
             showStock: true,
-            productImagePreview: null,
-            hasExistingPhoto: hasExistingPhoto,
             items: initialItems.length ? initialItems.map(item => buildItem(item)) : [buildItem()],
-            previewProductImage(event) {
-                const file = event.target.files?.[0];
-                if (this.productImagePreview) {
-                    URL.revokeObjectURL(this.productImagePreview);
-                    this.productImagePreview = null;
+            itemImagePreview(item) {
+                if (item.image_preview) {
+                    return item.image_preview;
                 }
+
+                return item.existing_image_url || null;
+            },
+            previewItemImage(index, event) {
+                const item = this.items[index];
+                const file = event.target.files?.[0];
+
+                if (item.image_preview?.startsWith('blob:')) {
+                    URL.revokeObjectURL(item.image_preview);
+                }
+
+                item.image_preview = null;
+
                 if (! file || ! file.type.startsWith('image/')) {
                     return;
                 }
-                this.productImagePreview = URL.createObjectURL(file);
-                this.hasExistingPhoto = false;
+
+                item.image_preview = URL.createObjectURL(file);
             },
             get cityMatches() {
                 const q = this.normalizeCitySearch(this.cityQuery);
@@ -810,6 +821,10 @@
             },
             removeItem(index) {
                 if (this.items.length > 1) {
+                    const item = this.items[index];
+                    if (item.image_preview?.startsWith('blob:')) {
+                        URL.revokeObjectURL(item.image_preview);
+                    }
                     this.items.splice(index, 1);
                 }
             },

@@ -165,9 +165,23 @@ class User extends Authenticatable
 
         return $this->hasAnyPermission([
             'orders.view', 'orders.validate', 'orders.create', 'orders.update', 'orders.delete',
-            'commercials.view', 'commercials.create', 'commercials.update', 'commercials.delete',
             'sales.balance.view', 'sales.balance.print',
             'payments.view', 'payments.create', 'payments.update', 'payments.delete',
+        ]);
+    }
+
+    public function canAccessConfigurationModule(): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        if (! $this->hasRole(UserRole::Commercial)) {
+            return false;
+        }
+
+        return $this->hasAnyPermission([
+            'commercials.view', 'commercials.create', 'commercials.update', 'commercials.delete',
         ]);
     }
 

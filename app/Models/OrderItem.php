@@ -9,7 +9,7 @@ class OrderItem extends Model
 {
     protected $fillable = [
         'order_id', 'product_id', 'product_variant_id',
-        'product_name', 'quantity', 'unit_price', 'total',
+        'product_name', 'product_image', 'quantity', 'unit_price', 'total',
     ];
 
     protected function casts(): array
@@ -28,5 +28,19 @@ class OrderItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function productImageUrl(): ?string
+    {
+        if ($this->product_image) {
+            return '/storage/'.$this->product_image;
+        }
+
+        return $this->product?->imageUrl();
+    }
+
+    public function hasOrderProductPhoto(): bool
+    {
+        return filled($this->product_image);
     }
 }

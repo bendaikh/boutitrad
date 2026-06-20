@@ -103,7 +103,7 @@ class PermissionCatalog
     {
         return match ($role) {
             'commercial' => array_values(array_unique(array_merge(
-                self::keysForGroups(['dashboard', 'clients', 'ventes']),
+                self::keysForGroups(['dashboard', 'clients', 'ventes', 'configuration']),
                 ['stock.view', 'stock.print'],
             ))),
             'gestionnaire_stock' => self::keysForGroups(['dashboard', 'stock']),
@@ -118,7 +118,7 @@ class PermissionCatalog
     public static function groupsForRole(string $role): array
     {
         $allowedGroupKeys = match ($role) {
-            'commercial' => ['dashboard', 'clients', 'ventes', 'stock'],
+            'commercial' => ['dashboard', 'clients', 'ventes', 'stock', 'configuration'],
             'gestionnaire_stock' => ['dashboard', 'stock'],
             'livreur' => ['dashboard'],
             default => array_column(config('permissions.groups', []), 'key'),

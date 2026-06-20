@@ -28,11 +28,13 @@
 @endphp
 
 <div @class([
-    'overflow-hidden flex flex-col rounded-xl shadow-card border',
+    'flex flex-col rounded-xl shadow-card border shrink-0 min-w-0',
+    'overflow-visible' => ! $isSolid,
+    'overflow-hidden' => $isSolid,
     'admin-card' => ! $isSolid,
     $solid['card'] => $isSolid,
 ])>
-    <div class="{{ $compact ? 'p-4' : 'p-5' }} flex-1">
+    <div class="{{ $compact ? 'p-4' : 'p-5' }}">
         <div class="flex items-start justify-between gap-2">
             @if($icon)
                 <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 {{ $isSolid ? 'bg-white/15 text-white' : $style['bg'] }}">
@@ -51,8 +53,8 @@
             $isSolid ? $solid['label'] : 'text-slate-400 dark:text-slate-500',
         ])>{{ $label }}</p>
         <p @class([
-            $compact ? 'text-xl' : 'text-2xl',
-            'font-bold mt-1 truncate',
+            $compact ? 'text-base sm:text-lg xl:text-xl' : 'text-xl sm:text-2xl',
+            'font-bold mt-1 leading-tight break-words',
             $isSolid ? $solid['value'] : 'text-slate-800 dark:text-slate-100',
         ])>{{ $value }}</p>
     </div>

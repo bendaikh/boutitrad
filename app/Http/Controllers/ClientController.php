@@ -27,6 +27,7 @@ class ClientController extends Controller
     {
         $clients = Client::query()
             ->with('commercial')
+            ->when(auth()->user()?->isCommercial(), fn ($q) => $q->where('commercial_id', auth()->id()))
             ->when($request->search, fn ($q, $s) => $q->where(function ($q) use ($s) {
                 $q->where('name', 'like', "%{$s}%")
                     ->orWhere('email', 'like', "%{$s}%")

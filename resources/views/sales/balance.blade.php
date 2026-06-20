@@ -36,7 +36,7 @@
                             id="filter-reference"
                             name="reference"
                             value="{{ request('reference') }}"
-                            placeholder="CMD-..."
+                            placeholder="BN-20260001"
                             class="form-input w-full text-sm py-1.5 font-mono"
                         >
                     </div>

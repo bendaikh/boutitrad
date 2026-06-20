@@ -99,8 +99,11 @@
                     @endif
                     <div><span class="text-slate-500 dark:text-slate-400">Commercial:</span> {{ $order->commercial?->name ?? '—' }}</div>
                     <div><span class="text-slate-500 dark:text-slate-400">Partenaire:</span> {{ $order->deliveryPartner?->name ?? '—' }}</div>
-                    @if($order->partner_tracking_ref)
-                        <div><span class="text-slate-500 dark:text-slate-400">Ref. partenaire:</span> <span class="font-mono text-xs">{{ $order->partner_tracking_ref }}</span></div>
+                    @if($order->deliveryReference())
+                        <div><span class="text-slate-500 dark:text-slate-400">Réf livraison:</span> <span class="font-mono text-xs">{{ $order->deliveryReference() }}</span>@if($order->deliveryPartner) <span class="text-slate-500">({{ $order->deliveryPartner->name }})</span>@endif</div>
+                    @endif
+                    @if($order->hasCathedisTracking())
+                        <div><span class="text-slate-500 dark:text-slate-400">Statut Cathedis:</span> <x-admin.cathedis-status-badge :order="$order" compact /></div>
                     @endif
                     <div><span class="text-slate-500 dark:text-slate-400">Créée le:</span> {{ $order->created_at->format('d/m/Y H:i') }}</div>
                     @if($order->submitted_to_admin_at)
@@ -127,7 +130,7 @@
                     </form>
                 @endif
 
-                @if(auth()->user()->isSuperAdmin() && in_array($order->status, [\App\Enums\OrderStatus::EnCours, \App\Enums\OrderStatus::Nouvelle]))
+                @if(auth()->user()->isSuperAdmin() && $order->canBeValidatedByAdmin())
                     @if($order->canBeEditedInForm())
                         <div class="admin-card p-5 space-y-3 border-brand-200 dark:border-brand-800 bg-brand-50/40 dark:bg-brand-900/10">
                             <h3 class="font-semibold">Modifier avant validation</h3>
@@ -153,14 +156,18 @@
                                 <option value="{{ $partner->id }}" @selected($partner->is_default)>{{ $partner->name }}</option>
                             @endforeach
                         </select>
-                        <button type="submit" class="w-full py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">Valider et transmettre à Cathedis</button>
+                        <button type="submit" class="w-full py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">
+                            {{ $order->status === \App\Enums\OrderStatus::Confirmee ? 'Relancer l\'envoi Cathedis' : 'Valider et transmettre à Cathedis' }}
+                        </button>
                     </form>
+                    @if($order->canBeRejectedByAdmin())
                     <form method="POST" action="{{ route('orders.reject', $order) }}" class="admin-card p-5 space-y-3 border-red-200 dark:border-red-900">
                         @csrf
                         <h3 class="font-semibold text-red-700 dark:text-red-400">Rejeter la commande</h3>
                         <textarea name="notes" rows="2" placeholder="Motif..." class="w-full rounded-lg border-slate-300 text-sm dark:bg-slate-800 dark:border-slate-600"></textarea>
                         <button type="submit" class="w-full py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">Rejeter</button>
                     </form>
+                    @endif
                 @endif
 
                 @if($order->hasBeenValidatedByAdmin())

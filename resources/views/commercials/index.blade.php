@@ -326,8 +326,8 @@
                 </x-slot:header>
                 <thead>
                     <tr>
-                        <th class="text-center align-top">ID commercial</th>
-                        <th class="text-center align-top">
+                        <th class="text-center align-middle">ID commercial</th>
+                        <th class="text-center align-middle">
                             @unless($isCommercialView)
                             <div class="relative inline-flex items-center justify-center gap-1.5 mx-auto" @click.outside="pickerOpen = false">
                                 <span>Nom commercial</span>
@@ -370,29 +370,29 @@
                             @endunless
                         </th>
                         @unless($isCommercialView)
-                        <th class="text-center align-top">Contact</th>
-                        <th class="text-center align-top">Email</th>
-                        <th class="text-center align-top">WhatsApp</th>
-                        <th class="text-center align-top">Zone prospect</th>
+                        <th class="text-center align-middle">Contact</th>
+                        <th class="text-center align-middle">Email</th>
+                        <th class="text-center align-middle">WhatsApp</th>
+                        <th class="text-center align-middle">Zone prospect</th>
                         @endunless
-                        <th class="text-center align-top">Commission affectée</th>
-                        <th class="text-center align-top">Cmd. livrées</th>
-                        <th class="text-center align-top">CA vendu</th>
-                        <th class="text-center align-top">Total commissions</th>
+                        <th class="text-center align-middle">Commission affectée</th>
+                        <th class="text-center align-middle">Cmd. livrées</th>
+                        <th class="text-center align-middle">CA vendu</th>
+                        <th class="text-center align-middle">Total commissions</th>
                     </tr>
                 </thead>
                 <tbody class="admin-table-body">
                     @if($isCommercialView)
                         @forelse($commercials as $commercial)
                             <tr>
-                                <td class="admin-table-cell-muted font-mono text-xs text-center align-top">{{ $commercial->formattedCommercialId() }}</td>
-                                <td class="admin-table-cell font-medium text-center align-top">{{ $commercial->name }}</td>
-                                <td class="admin-table-cell text-center align-top tabular-nums">
+                                <td class="admin-table-cell-muted font-mono text-xs text-center align-middle">{{ $commercial->formattedCommercialId() }}</td>
+                                <td class="admin-table-cell font-medium text-center align-middle">{{ $commercial->name }}</td>
+                                <td class="admin-table-cell text-center align-middle tabular-nums">
                                     {{ number_format($commercial->effective_commission_rate ?? 0, 1, ',', ' ') }} %
                                 </td>
-                                <td class="admin-table-cell text-center align-top tabular-nums font-semibold">{{ $commercial->delivered_orders_count ?? 0 }}</td>
-                                <td class="admin-table-cell text-center align-top tabular-nums font-medium">{{ number_format($commercial->total_sales ?? 0, 2, ',', ' ') }} DH</td>
-                                <td class="admin-table-cell text-center align-top tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
+                                <td class="admin-table-cell text-center align-middle tabular-nums font-semibold">{{ $commercial->delivered_orders_count ?? 0 }}</td>
+                                <td class="admin-table-cell text-center align-middle tabular-nums font-medium">{{ number_format($commercial->total_sales ?? 0, 2, ',', ' ') }} DH</td>
+                                <td class="admin-table-cell text-center align-middle tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
                                     {{ number_format($commercial->total_commissions ?? 0, 2, ',', ' ') }} DH
                                 </td>
                             </tr>
@@ -411,18 +411,18 @@
                                 @click="pickCommercial({{ $commercial->id }})"
                                 @dblclick.stop="window.location.href = '{{ $editBaseUrl }}?edit={{ $commercial->id }}'"
                             >
-                                <td class="admin-table-cell-muted font-mono text-xs text-center align-top">{{ $commercial->formattedCommercialId() }}</td>
-                                <td class="admin-table-cell font-medium text-center align-top">{{ $commercial->name }}</td>
-                                <td class="admin-table-cell text-center align-top">{{ $commercial->phone ?: '—' }}</td>
-                                <td class="admin-table-cell text-center align-top">{{ $commercial->email }}</td>
-                                <td class="admin-table-cell text-center align-top">{{ $commercial->whatsapp ?: '—' }}</td>
-                                <td class="admin-table-cell text-center align-top">{{ $commercial->prospect_zone ?: '—' }}</td>
-                                <td class="admin-table-cell text-center align-top tabular-nums">
+                                <td class="admin-table-cell-muted font-mono text-xs text-center align-middle">{{ $commercial->formattedCommercialId() }}</td>
+                                <td class="admin-table-cell font-medium text-center align-middle">{{ $commercial->name }}</td>
+                                <td class="admin-table-cell text-center align-middle">{{ $commercial->phone ?: '—' }}</td>
+                                <td class="admin-table-cell text-center align-middle">{{ $commercial->email }}</td>
+                                <td class="admin-table-cell text-center align-middle">{{ $commercial->whatsapp ?: '—' }}</td>
+                                <td class="admin-table-cell text-center align-middle">{{ $commercial->prospect_zone ?: '—' }}</td>
+                                <td class="admin-table-cell text-center align-middle tabular-nums">
                                     {{ number_format($commercial->effective_commission_rate ?? 0, 1, ',', ' ') }} %
                                 </td>
-                                <td class="admin-table-cell text-center align-top tabular-nums font-semibold">{{ $commercial->delivered_orders_count ?? 0 }}</td>
-                                <td class="admin-table-cell text-center align-top tabular-nums font-medium">{{ number_format($commercial->total_sales ?? 0, 2, ',', ' ') }} DH</td>
-                                <td class="admin-table-cell text-center align-top tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
+                                <td class="admin-table-cell text-center align-middle tabular-nums font-semibold">{{ $commercial->delivered_orders_count ?? 0 }}</td>
+                                <td class="admin-table-cell text-center align-middle tabular-nums font-medium">{{ number_format($commercial->total_sales ?? 0, 2, ',', ' ') }} DH</td>
+                                <td class="admin-table-cell text-center align-middle tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
                                     {{ number_format($commercial->total_commissions ?? 0, 2, ',', ' ') }} DH
                                 </td>
                             </tr>

@@ -42,8 +42,15 @@
         <p class="font-medium text-slate-900 dark:text-slate-100">{{ $order->deliveryPartner?->name ?? '—' }}</p>
     </div>
     <div class="admin-bon-info-cell">
-        <p class="admin-order-form-label">Ref. livraison</p>
-        <p class="font-mono text-xs font-medium text-slate-900 dark:text-slate-100 break-all">{{ $order->partner_tracking_ref ?? '—' }}</p>
+        <p class="admin-order-form-label">Réf livraison</p>
+        <p class="font-mono text-xs font-medium text-slate-900 dark:text-slate-100 break-all">{{ $order->deliveryReference() ?? '—' }}</p>
+        @if($order->deliveryPartner && $order->deliveryReference())
+            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{{ $order->deliveryPartner->name }}</p>
+        @endif
+    </div>
+    <div class="admin-bon-info-cell">
+        <p class="admin-order-form-label">Statut Cathedis</p>
+        <x-admin.cathedis-status-badge :order="$order" />
     </div>
     <div class="admin-bon-info-cell">
         <p class="admin-order-form-label">Mode paiement</p>

@@ -4,12 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrderStatus;
 use App\Enums\UserRole;
-use App\Models\Commission;
-use App\Models\CommercialObjective;
 use App\Models\Order;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\CommissionService;
+use App\Services\DashboardService;
 use App\Support\CommercialEmail;
 use App\Support\PermissionCatalog;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +21,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CommercialController extends Controller
 {
-    public function __construct(private CommissionService $commissionService) {}
+    public function __construct(
+        private CommissionService $commissionService,
+        private DashboardService $dashboard,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -288,36 +290,14 @@ class CommercialController extends Controller
         return $commercial;
     }
 
-    private function deliveredOrdersFor(User $commercial): Collection
-    {
-        return Order::with('client')
-            ->where('commercial_id', $commercial->id)
-            ->where('status', OrderStatus::Livree)
-            ->latest()
-            ->get();
-    }
-
-    private function commissionsFor(User $commercial): Collection
-    {
-        return Commission::with('order')
-            ->where('user_id', $commercial->id)
-            ->latest()
-            ->get();
-    }
-
     private function dashboard(User $commercial): View
     {
-        $deliveredOrders = $this->deliveredOrdersFor($commercial);
-        $totalSales = (float) $commercial->total_sales;
-        $ordersCount = Order::where('commercial_id', $commercial->id)->count();
-        $objectives = CommercialObjective::where('user_id', $commercial->id)->latest()->limit(3)->get();
-        $commissions = $this->commissionsFor($commercial);
-        $totalCommissions = (float) $commercial->total_commissions;
-        $commissionRate = $commercial->effective_commission_rate;
-
-        return view('commercials.show', compact(
-            'commercial', 'deliveredOrders', 'totalSales', 'ordersCount',
-            'objectives', 'commissions', 'totalCommissions', 'commissionRate'
-        ));
+        return view('dashboard.commercial', [
+            'commercial' => $commercial,
+            'stats' => $this->dashboard->commercialStats($commercial),
+            'orders' => $this->dashboard->commercialOrders($commercial),
+            'stockProducts' => $this->dashboard->commercialStock(),
+            'clients' => $this->dashboard->commercialClients($commercial),
+        ]);
     }
 }

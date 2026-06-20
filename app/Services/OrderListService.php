@@ -26,6 +26,7 @@ class OrderListService
             ->with([
                 'order.client',
                 'order.commercial',
+                'order.deliveryPartner',
                 'product.category',
             ])
             ->whereHas('order', function ($q) use ($request, $user) {

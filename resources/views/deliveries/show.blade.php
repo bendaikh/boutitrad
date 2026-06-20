@@ -6,17 +6,22 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="admin-card p-5 space-y-3 text-sm">
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between gap-3">
                     <h2 class="text-lg font-semibold">{{ $order->reference }}</h2>
-                    <x-admin.status-badge :status="$order->status" />
+                    <div class="flex flex-col items-end gap-2">
+                        <x-admin.status-badge :status="$order->status" />
+                        <x-admin.cathedis-status-badge :order="$order" label="Cathedis" class="items-end" />
+                    </div>
                 </div>
                 <div><span class="text-slate-500">Client:</span> <strong>{{ $order->client->name }}</strong></div>
                 <div><span class="text-slate-500">Téléphone:</span> {{ $order->client->phone ?? '—' }}</div>
                 <div><span class="text-slate-500">Adresse:</span> {{ $order->client->address ?? '—' }}</div>
                 <div><span class="text-slate-500">Ville:</span> {{ $order->client->city ?? '—' }}</div>
                 <div><span class="text-slate-500">Partenaire:</span> {{ $order->deliveryPartner?->name ?? '—' }}</div>
-                @if($order->partner_tracking_ref)
-                    <div><span class="text-slate-500">Ref. tracking:</span> <span class="font-mono">{{ $order->partner_tracking_ref }}</span></div>
+                @if($order->deliveryReference())
+                    <div><span class="text-slate-500">Réf livraison:</span> <span class="font-mono">{{ $order->deliveryReference() }}</span>@if($order->deliveryPartner) <span class="text-slate-500">({{ $order->deliveryPartner->name }})</span>@endif</div>
+                @else
+                    <div><span class="text-slate-500">Réf livraison:</span> —</div>
                 @endif
                 <div><span class="text-slate-500">Montant commande:</span> <strong>{{ number_format($order->total, 2, ',', ' ') }} DH</strong></div>
                 <div><span class="text-slate-500">Solde à encaisser (COD):</span> <strong class="text-emerald-600">{{ number_format($order->balanceDue(), 2, ',', ' ') }} DH</strong></div>

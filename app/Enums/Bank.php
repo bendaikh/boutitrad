@@ -11,6 +11,7 @@ enum Bank: string
     case Bp = 'BP';
     case Omnia = 'OMNIA';
     case BnqAkhdar = 'BNQ AKHDAR';
+    case Esp = 'ESP';
     case CaYoussr = 'CA YOUSSR';
     case Barid = 'BARID';
     case Sg = 'SG';

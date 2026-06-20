@@ -15,6 +15,10 @@
         @apply bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-700 shadow-card;
     }
 
+    .admin-dashboard-kpis {
+        @apply sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 py-4 mb-5 bg-surface-muted/95 dark:bg-slate-950/95 backdrop-blur-sm border-b border-slate-200/80 dark:border-slate-800 shadow-sm;
+    }
+
     .admin-panel {
         @apply bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden;
     }
@@ -36,7 +40,7 @@
     }
 
     .admin-table thead th {
-        @apply text-slate-100 font-bold text-[0.9375rem] leading-tight tracking-wide px-4 py-3.5;
+        @apply text-slate-100 font-bold text-[0.9375rem] leading-tight tracking-wide px-4 py-3.5 align-middle;
     }
 
     .admin-table-scroll thead th {
@@ -61,17 +65,21 @@
     }
 
     .admin-table-cell {
-        @apply px-4 py-3 text-slate-800 dark:text-slate-200;
+        @apply px-4 py-3 text-slate-800 dark:text-slate-200 align-middle;
     }
 
     .admin-table-cell-muted {
-        @apply px-4 py-3 text-slate-600 dark:text-slate-400;
+        @apply px-4 py-3 text-slate-600 dark:text-slate-400 align-middle;
+    }
+
+    .admin-table tbody td {
+        @apply align-middle;
     }
 
     .commercials-table .admin-table thead th,
     .commercials-table .admin-table-cell,
     .commercials-table .admin-table-cell-muted {
-        @apply text-center align-top;
+        @apply text-center align-middle;
     }
 
     .admin-row-hover {
@@ -246,8 +254,22 @@
         @apply w-[4.75rem];
     }
 
-    .admin-th-filter select {
+    .admin-th-filter select,
+    .admin-th-filter input {
         @apply w-full appearance-none rounded border border-slate-500 dark:border-slate-600 bg-slate-600 dark:bg-slate-700 text-slate-100 text-[10px] font-medium py-0.5 pl-1.5 pr-5 shadow-sm focus:border-brand-400 focus:ring-1 focus:ring-brand-400 cursor-pointer leading-tight;
+    }
+
+    .admin-th-filter input[type="text"],
+    .admin-th-filter input[type="number"] {
+        @apply cursor-text;
+    }
+
+    .admin-th-filter--medium {
+        @apply w-[5.75rem];
+    }
+
+    .admin-th-filter--ref {
+        @apply w-[7rem];
     }
 
     .admin-th-filter-icon {
@@ -284,5 +306,92 @@
 
     .admin-order-form-section {
         @apply p-4 space-y-4;
+    }
+
+    .admin-order-form-field {
+        @apply flex flex-col;
+    }
+
+    .admin-order-form-hint {
+        @apply text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 min-h-[14px] leading-snug;
+    }
+
+    .admin-payroll-form-grid {
+        @apply grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-3 gap-y-3 items-start;
+    }
+
+    .admin-payroll-form-grid .admin-order-form-field {
+        @apply items-center min-w-0;
+    }
+
+    .admin-payroll-form-grid .admin-order-form-label,
+    .admin-payroll-form-grid .admin-order-form-hint {
+        @apply w-full text-center;
+    }
+
+    .admin-payroll-form-grid .admin-order-form-input,
+    .admin-payroll-form-grid .admin-order-form-readonly {
+        @apply w-full text-center;
+    }
+
+    .admin-charge-form-grid {
+        @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-x-3 gap-y-3 items-start;
+    }
+
+    .admin-charge-instrument-grid {
+        @apply grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-3 gap-y-3 items-start;
+    }
+
+    .admin-charge-instrument-input:disabled {
+        @apply bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed dark:bg-slate-800/60 dark:text-slate-500 dark:border-slate-700;
+    }
+
+    .payroll-table .admin-table {
+        @apply table-fixed w-full;
+    }
+
+    .payroll-table .admin-table-scroll thead tr:first-child th {
+        @apply sticky top-0 z-[11];
+    }
+
+    .payroll-table .admin-table-scroll thead tr:nth-child(2) th {
+        @apply sticky top-[1.875rem] z-10;
+    }
+
+    .payroll-table thead tr:first-child th {
+        @apply text-center px-2 whitespace-nowrap;
+    }
+
+    .payroll-table .admin-th-filter-row th {
+        @apply px-2 py-1.5 text-center align-middle;
+    }
+
+    .payroll-table .admin-th-filter {
+        @apply inline-block max-w-full mx-auto;
+    }
+
+    .payroll-table .admin-th-filter--narrow {
+        @apply w-[4.75rem];
+    }
+
+    .payroll-table .admin-th-filter--medium {
+        @apply w-[5.75rem];
+    }
+
+    .payroll-table .admin-th-filter--ref {
+        @apply w-[7rem];
+    }
+
+    .payroll-table .admin-th-filter--wide {
+        @apply w-[10rem];
+    }
+
+    .payroll-table .admin-table-cell,
+    .payroll-table .admin-table-cell-muted {
+        @apply px-2 text-center;
+    }
+
+    .admin-payroll-section-title {
+        @apply text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2.5 pb-1 border-b border-slate-200/80 dark:border-slate-700/80;
     }
 }

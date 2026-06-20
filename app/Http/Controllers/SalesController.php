@@ -2,18 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\Bank;
-use App\Enums\PaymentMode;
-use App\Enums\SettlementStatus;
-use App\Models\OrderPayment;
-use App\Enums\RegulationStatus;
-use App\Services\PaymentService;
+use App\Models\CommercialPayroll;
+use App\Services\CommercialPayrollService;
 use App\Services\SalesBalanceService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -21,7 +17,7 @@ class SalesController extends Controller
 {
     public function __construct(
         private SalesBalanceService $salesBalance,
-        private PaymentService $paymentService,
+        private CommercialPayrollService $payrollService,
     ) {}
 
     public function balance(Request $request): View
@@ -112,27 +108,52 @@ class SalesController extends Controller
         ]);
     }
 
-    public function payments(): View
+    public function payments(Request $request): View
     {
         $user = auth()->user();
-        $unpaidOrders = $this->paymentService->unpaidOrders($user);
+        $editingPayroll = null;
+
+        if ($request->filled('selected')) {
+            $editingPayroll = $this->payrollService->findForUser((int) $request->input('selected'), $user);
+        }
 
         return view('sales.payments', [
-            'payments' => $this->paymentService->paymentsList($user),
-            'unpaidOrders' => $unpaidOrders,
-            'treasuries' => $this->paymentService->activeTreasuries(),
-            'paymentModes' => [
-                PaymentMode::Esp,
-                PaymentMode::Vir,
-                PaymentMode::Vers,
-                PaymentMode::Chq,
-                PaymentMode::Eff,
-                PaymentMode::Autre,
-                PaymentMode::Comptant,
-            ],
-            'banks' => Bank::cases(),
-            'settlementStatuses' => SettlementStatus::cases(),
-            'regulationStatuses' => RegulationStatus::cases(),
+            'payrolls' => $this->payrollService->payrollsList($user, $request),
+            'commercials' => $this->payrollService->commercials($user),
+            'previewReference' => CommercialPayroll::previewReference(),
+            'editingPayroll' => $editingPayroll,
+            'formActive' => $request->boolean('new') || $editingPayroll !== null,
+            'selectedPayrollId' => $editingPayroll?->id ?? ($request->filled('selected') ? (int) $request->input('selected') : null),
+            'payrollFilters' => $this->payrollService->activeFilters($request),
+        ]);
+    }
+
+    public function payrollStats(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'commercial_id' => ['required', 'exists:users,id'],
+            'pay_month' => ['required', 'regex:/^\d{4}-\d{2}$/'],
+            'exclude_id' => ['nullable', 'integer', 'exists:commercial_payrolls,id'],
+        ]);
+
+        $user = $request->user();
+
+        if ($user->isCommercial() && (int) $validated['commercial_id'] !== $user->id) {
+            abort(403);
+        }
+
+        $stats = $this->payrollService->statsForCommercialMonth(
+            (int) $validated['commercial_id'],
+            $validated['pay_month'],
+        );
+
+        return response()->json([
+            ...$stats,
+            'duplicate' => $this->payrollService->duplicateExists(
+                (int) $validated['commercial_id'],
+                $validated['pay_month'],
+                isset($validated['exclude_id']) ? (int) $validated['exclude_id'] : null,
+            ),
         ]);
     }
 
@@ -140,43 +161,69 @@ class SalesController extends Controller
     {
         $validated = $request->validate([
             'payment_date' => ['required', 'date'],
-            'order_id' => ['required', 'exists:orders,id'],
-            'payment_mode' => ['required', Rule::enum(PaymentMode::class)],
-            'bank' => ['nullable', Rule::enum(Bank::class)],
-            'payment_number' => ['nullable', 'string', 'max:100'],
-            'settlement_status' => ['nullable', Rule::enum(SettlementStatus::class)],
-            'regulation_status' => ['required', Rule::enum(RegulationStatus::class)],
-            'drawer_name' => ['nullable', 'string', 'max:150'],
-            'encashment_date' => ['nullable', 'date'],
-            'treasury_id' => ['nullable', 'exists:treasuries,id'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
+            'pay_month' => ['required', 'regex:/^\d{4}-\d{2}$/'],
+            'commercial_id' => ['required', 'exists:users,id'],
         ]);
 
         try {
-            $this->paymentService->record($validated, $request->user());
+            $payroll = $this->payrollService->record($validated, $request->user());
         } catch (\InvalidArgumentException $e) {
-            return back()->withErrors(['amount' => $e->getMessage()])->withInput();
+            return back()->withErrors(['pay_month' => $e->getMessage()])->withInput();
         }
 
         return redirect()
-            ->route('sales.payments')
-            ->with('success', 'Paiement enregistré avec succès.');
+            ->route('sales.payments', array_merge(
+                $this->payrollService->activeFilters($request),
+                ['selected' => $payroll->id],
+            ));
     }
 
-    public function updatePaymentStatus(Request $request, OrderPayment $payment): RedirectResponse
+    public function updatePayment(Request $request, CommercialPayroll $payroll): RedirectResponse
     {
         $validated = $request->validate([
-            'regulation_status' => ['required', Rule::enum(RegulationStatus::class)],
+            'payment_date' => ['required', 'date'],
+            'pay_month' => ['required', 'regex:/^\d{4}-\d{2}$/'],
+            'commercial_id' => ['required', 'exists:users,id'],
         ]);
 
-        $this->paymentService->updateRegulationStatus(
-            $payment,
-            RegulationStatus::from($validated['regulation_status']),
-            $request->user(),
-        );
+        try {
+            $this->payrollService->update($payroll, $validated, $request->user());
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['pay_month' => $e->getMessage()])->withInput();
+        }
 
         return redirect()
-            ->route('sales.payments')
-            ->with('success', 'Statut du règlement mis à jour.');
+            ->route('sales.payments', array_merge(
+                $this->payrollService->activeFilters($request),
+                ['selected' => $payroll->id],
+            ));
+    }
+
+    public function destroyPayment(Request $request, CommercialPayroll $payroll): RedirectResponse
+    {
+        $this->payrollService->delete($payroll, $request->user());
+
+        return redirect()
+            ->route('sales.payments', $this->payrollService->activeFilters($request));
+    }
+
+    public function paymentsPrint(Request $request): View
+    {
+        $user = auth()->user();
+
+        return view('sales.payments-export', [
+            'payrolls' => $this->payrollService->allPayrolls($user, $request),
+        ]);
+    }
+
+    public function paymentsExportPdf(Request $request): Response
+    {
+        $user = auth()->user();
+        $payrolls = $this->payrollService->allPayrolls($user, $request);
+        $forPdf = true;
+
+        return Pdf::loadView('sales.payments-export', compact('payrolls', 'forPdf'))
+            ->setPaper('a4', 'landscape')
+            ->download('paie-commerciaux-'.now()->format('Y-m-d').'.pdf');
     }
 }

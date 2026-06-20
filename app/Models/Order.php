@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Order extends Model
 {
     protected $fillable = [
-        'reference', 'client_id', 'commercial_id', 'livreur_id', 'delivery_partner_id', 'partner_tracking_ref', 'status',
+        'reference', 'client_id', 'commercial_id', 'livreur_id', 'delivery_partner_id', 'partner_tracking_ref', 'cathedis_status_code', 'status',
         'subtotal', 'discount', 'delivery_cost', 'tax', 'total', 'amount_paid', 'payment_mode', 'notes', 'internal_notes', 'shipping_remark', 'product_image',
         'validated_at', 'delivered_at', 'cancelled_at', 'submitted_to_admin_at', 'sent_to_partner_at', 'created_by',
     ];
@@ -32,6 +32,7 @@ class Order extends Model
             'cancelled_at' => 'datetime',
             'submitted_to_admin_at' => 'datetime',
             'sent_to_partner_at' => 'datetime',
+            'cathedis_status_synced_at' => 'datetime',
         ];
     }
 
@@ -82,10 +83,54 @@ class Order extends Model
 
     public static function generateReference(): string
     {
-        $prefix = 'CMD-'.now()->format('Ymd');
-        $last = static::where('reference', 'like', $prefix.'%')->count();
+        $year = (int) now()->format('Y');
+        $prefix = 'BN-'.$year;
 
-        return $prefix.'-'.str_pad((string) ($last + 1), 4, '0', STR_PAD_LEFT);
+        $latestSequence = static::query()
+            ->where('reference', 'like', $prefix.'%')
+            ->pluck('reference')
+            ->map(fn (string $reference) => self::parseBonSequence($reference, $year))
+            ->filter()
+            ->max();
+
+        $next = ((int) $latestSequence) + 1;
+
+        return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+    }
+
+    public static function previewReference(): string
+    {
+        return static::generateReference();
+    }
+
+    private static function parseBonSequence(string $reference, int $year): ?int
+    {
+        if (preg_match('/^BN-'.$year.'(\d{4})$/', $reference, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return null;
+    }
+
+    public function deliveryReference(): ?string
+    {
+        return $this->partner_tracking_ref;
+    }
+
+    public function hasCathedisTracking(): bool
+    {
+        return filled($this->partner_tracking_ref)
+            && $this->deliveryPartner?->isCathedis();
+    }
+
+    public function cathedisStatusDisplay(): ?string
+    {
+        return filled($this->cathedis_status_code) ? $this->cathedis_status_code : null;
+    }
+
+    public function cathedisStatusColor(): string
+    {
+        return \App\Support\CathedisStatusMapper::displayColor((string) $this->cathedis_status_code);
     }
 
     public function orderAmount(): float
@@ -141,6 +186,21 @@ class Order extends Model
         return $this->status === OrderStatus::EnCours;
     }
 
+    public function canBeValidatedByAdmin(): bool
+    {
+        if (in_array($this->status, [OrderStatus::Nouvelle, OrderStatus::EnCours], true)) {
+            return true;
+        }
+
+        return $this->status === OrderStatus::Confirmee
+            && blank($this->partner_tracking_ref);
+    }
+
+    public function canBeRejectedByAdmin(): bool
+    {
+        return in_array($this->status, [OrderStatus::Nouvelle, OrderStatus::EnCours], true);
+    }
+
     public function hasBeenValidatedByAdmin(): bool
     {
         if ($this->validated_at !== null) {
@@ -193,26 +253,34 @@ class Order extends Model
 
     public function displayProductImageUrl(): ?string
     {
+        $this->loadMissing('items.product');
+
+        foreach ($this->items as $item) {
+            if ($url = $item->productImageUrl()) {
+                return $url;
+            }
+        }
+
         if ($this->productImageUrl()) {
             return $this->productImageUrl();
         }
 
-        $firstItem = $this->relationLoaded('items')
-            ? $this->items->first()
-            : $this->items()->with('product')->first();
-
-        return $firstItem?->product?->imageUrl();
+        return null;
     }
 
     public function hasProductPhoto(): bool
     {
-        if (filled($this->product_image)) {
+        $this->loadMissing('items.product');
+
+        if ($this->items->isEmpty()) {
+            return filled($this->product_image);
+        }
+
+        if ($this->items->count() === 1 && filled($this->product_image) && ! $this->items->first()->hasOrderProductPhoto()) {
             return true;
         }
 
-        $this->loadMissing('items.product');
-
-        return $this->items->contains(fn ($item) => filled($item->product?->image));
+        return $this->items->every(fn (OrderItem $item) => $item->hasOrderProductPhoto());
     }
 
     public function hasShippingRemark(): bool
@@ -250,7 +318,7 @@ class Order extends Model
         }
 
         if (! $this->hasProductPhoto()) {
-            $missing[] = 'photo produit';
+            $missing[] = 'photo de chaque produit';
         }
 
         if (! $this->hasShippingRemark()) {
@@ -310,10 +378,6 @@ class Order extends Model
             return true;
         }
 
-        if ($user->isCommercial() && $this->commercial_id === $user->id) {
-            return true;
-        }
-
         return false;
     }
 
@@ -325,12 +389,25 @@ class Order extends Model
             return false;
         }
 
+        if ($user->isCommercial()) {
+            if ($this->hasBeenValidatedByAdmin()) {
+                return false;
+            }
+
+            if (! $this->isEditableByCommercial()) {
+                return false;
+            }
+
+            return $this->commercial_id === $user->id
+                || $this->created_by === $user->id;
+        }
+
         if ($this->canBeModifiedBy($user)) {
             return true;
         }
 
-        return $user->isCommercial()
-            && $this->commercial_id === $user->id
-            && $this->isEditableByCommercial();
+        return $user->isSuperAdmin()
+            && ! $this->hasBeenValidatedByAdmin()
+            && $this->status === OrderStatus::Nouvelle;
     }
 }
