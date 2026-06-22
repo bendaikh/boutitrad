@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="utf-8">
-    <title>Bon de commande {{ $order->reference }}</title>
+    <title>Bon de livraison {{ $order->reference }}</title>
     <style>
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 16px; color: #1e293b; }
@@ -62,7 +62,7 @@
     <div class="header">
         <div>
             <div class="brand">BELDI-MALAKI</div>
-            <p class="meta" style="margin-top: 6px; font-weight: bold; color: #1e293b;">Bon de commande validé</p>
+            <p class="meta" style="margin-top: 6px; font-weight: bold; color: #1e293b;">Bon de livraison</p>
             <p class="meta">Réf bon : <strong>{{ $order->reference }}</strong></p>
             <p class="meta">Date : {{ ($order->validated_at ?? $order->created_at)->format('d/m/Y H:i') }}</p>
             @if($order->deliveryReference())
@@ -82,11 +82,16 @@
         </div>
     </div>
 
+    @php
+        $itemsSubtotal = $order->itemsSubtotal();
+        $grandTotal = $order->computedGrandTotal();
+    @endphp
+
     <div class="client-box">
         <strong>{{ $order->client->name }}</strong>
-        @if($order->client->address)<div>{{ $order->client->address }}</div>@endif
-        @if($order->client->deliveryCityName())<div>{{ $order->client->deliveryCityName() }}</div>@endif
-        @if($order->client->phone)<div>Tél. {{ $order->client->phone }}</div>@endif
+        <div><span style="color:#64748b;font-size:12px;">Adresse :</span> {{ $order->client->address ?: '—' }}</div>
+        <div><span style="color:#64748b;font-size:12px;">Ville :</span> {{ $order->client->deliveryCityName() ?: '—' }}</div>
+        <div><span style="color:#64748b;font-size:12px;">Tél. :</span> {{ $order->client->phone ?: '—' }}</div>
     </div>
 
     <table class="items-table">
@@ -108,6 +113,9 @@
                         <p class="product-name">{{ $item->product_name }}</p>
                         @if($item->product?->sku)
                             <p class="product-sku">{{ $item->product->sku }}</p>
+                        @endif
+                        @if(filled($item->remark))
+                            <p class="product-sku" style="margin-top:6px;color:#92400e;font-weight:600;">NB : {{ $item->remark }}</p>
                         @endif
                         <div class="product-images">
                             @if(! $hasImage)
@@ -145,22 +153,22 @@
     </table>
 
     <div class="totals">
-        <div>Sous-total : {{ number_format($order->subtotal, 2, ',', ' ') }} DH</div>
+        <div>Sous-total articles : {{ number_format($itemsSubtotal, 2, ',', ' ') }} DH</div>
         @if($order->delivery_cost > 0)
             <div>Livraison : {{ number_format($order->delivery_cost, 2, ',', ' ') }} DH</div>
         @endif
         @if($order->discount > 0)
             <div>Remise : -{{ number_format($order->discount, 2, ',', ' ') }} DH</div>
         @endif
-        <div class="grand">Total : {{ number_format($order->total, 2, ',', ' ') }} DH</div>
+        <div class="grand">Total : {{ number_format($grandTotal, 2, ',', ' ') }} DH</div>
         @if($order->balanceDue() > 0)
             <div class="cod">COD à encaisser : {{ number_format($order->balanceDue(), 2, ',', ' ') }} DH</div>
         @endif
     </div>
 
     <div class="nb-box">
-        <div class="nb-label">NB — Remarque</div>
-        <p class="nb-text">{{ $order->shipping_remark ?: '—' }}</p>
+        <div class="nb-label">NB — Remarques produits</div>
+        <p class="nb-text">{{ $order->combinedShippingRemark() ?: '—' }}</p>
     </div>
 
     @if($order->notes)

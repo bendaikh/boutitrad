@@ -122,7 +122,7 @@ class CathedisDispatchService
             ],
             'allowOpening' => CathedisConfig::allowOpening(),
             'nomOrder' => $order->reference,
-            'comment' => $order->shipping_remark ?: $order->notes,
+            'comment' => $order->combinedShippingRemark() ?: $order->notes,
             'packageCount' => 1,
             'rangeWeight' => CathedisConfig::rangeWeight(),
             'shippingMethod' => CathedisConfig::shippingMethod(),

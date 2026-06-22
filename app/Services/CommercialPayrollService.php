@@ -30,6 +30,11 @@ class CommercialPayrollService
         ];
     }
 
+    public function canManagePayrolls(User $user): bool
+    {
+        return $user->isSuperAdmin();
+    }
+
     public function commercials(User $user): Collection
     {
         return User::query()
@@ -104,7 +109,11 @@ class CommercialPayrollService
         }
 
         if ($request->filled('pf_commercial_id')) {
-            $query->where('commercial_id', $request->input('pf_commercial_id'));
+            $commercialId = (int) $request->input('pf_commercial_id');
+            if ($user->isCommercial() && $commercialId !== $user->id) {
+                abort(403);
+            }
+            $query->where('commercial_id', $commercialId);
         }
 
         if ($request->filled('pf_sales_count')) {
@@ -148,6 +157,7 @@ class CommercialPayrollService
      *     commission_rate: float,
      *     commission_amount: float,
      *     amount_to_pay: float,
+     *     orders: list<array{reference: string, date: string, total: float, status: string, delivery_ref: string|null}>,
      * }
      */
     public function statsForCommercialMonth(int $commercialId, string $payMonth): array
@@ -166,7 +176,8 @@ class CommercialPayrollService
             ->whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->whereIn('status', $this->confirmedStatuses())
-            ->get(['total']);
+            ->orderByDesc('created_at')
+            ->get(['id', 'reference', 'created_at', 'total', 'status', 'partner_tracking_ref']);
 
         $revenue = round((float) $orders->sum('total'), 2);
         $rate = $this->commissionService->rateForCommercial($commercial);
@@ -178,6 +189,13 @@ class CommercialPayrollService
             'commission_rate' => $rate,
             'commission_amount' => $commission,
             'amount_to_pay' => $commission,
+            'orders' => $orders->map(fn (Order $order) => [
+                'reference' => $order->reference,
+                'date' => $order->created_at->format('d/m/Y'),
+                'total' => round((float) $order->total, 2),
+                'status' => $order->status->label(),
+                'delivery_ref' => $order->partner_tracking_ref,
+            ])->values()->all(),
         ];
     }
 
@@ -192,7 +210,7 @@ class CommercialPayrollService
 
     public function record(array $data, User $user): CommercialPayroll
     {
-        if ($user->isCommercial() && (int) $data['commercial_id'] !== $user->id) {
+        if (! $this->canManagePayrolls($user)) {
             abort(403);
         }
 
@@ -220,7 +238,7 @@ class CommercialPayrollService
 
     public function update(CommercialPayroll $payroll, array $data, User $user): CommercialPayroll
     {
-        if ($user->isCommercial() && $payroll->commercial_id !== $user->id) {
+        if (! $this->canManagePayrolls($user)) {
             abort(403);
         }
 
@@ -246,7 +264,7 @@ class CommercialPayrollService
 
     public function delete(CommercialPayroll $payroll, User $user): void
     {
-        if ($user->isCommercial() && $payroll->commercial_id !== $user->id) {
+        if (! $this->canManagePayrolls($user)) {
             abort(403);
         }
 

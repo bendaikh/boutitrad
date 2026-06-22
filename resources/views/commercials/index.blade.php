@@ -1,11 +1,13 @@
 ﻿<x-admin-layout title="{{ ($commercialView ?? false) ? 'Mon activité commerciale' : 'Commerciaux' }}">
     @php
-        $formCommercial = $editingCommercial ?? null;
-        $isEdit = (bool) $formCommercial;
+        $formCommercial = $editingCommercial ?? $viewingCommercial ?? null;
+        $isEdit = (bool) $editingCommercial;
+        $isView = (bool) ($isViewMode ?? false);
         $formActive = ($formActive ?? false) || $errors->any();
         $nouveauUrl = route('commercials.index', ['new' => 1]);
         $annulerUrl = route('commercials.index');
         $editBaseUrl = route('commercials.index');
+        $viewBaseUrl = route('commercials.index');
         $isCommercialView = $commercialView ?? false;
         $initialSelectedId = ($selectedCommercialId ?? null) ?? $formCommercial?->id;
         $commercialIsActive = (bool) old('is_active', $formCommercial?->is_active ?? true);
@@ -21,6 +23,7 @@
         x-data="{
             formActive: {{ $formActive ? 'true' : 'false' }},
             isEdit: {{ $isEdit ? 'true' : 'false' }},
+            isView: {{ $isView ? 'true' : 'false' }},
             selectedId: {{ $initialSelectedId ?? 'null' }},
             pickerOpen: false,
             deleteAction: '',
@@ -35,6 +38,16 @@
             },
             pickCommercial(id) {
                 this.selectedId = id;
+            },
+            openCommercialView(id) {
+                if (this.isView && this.selectedId === id) {
+                    return;
+                }
+
+                window.location.href = '{{ $viewBaseUrl }}?view=' + id;
+            },
+            openCommercialEdit(id) {
+                window.location.href = '{{ $editBaseUrl }}?edit=' + id;
             },
             formatMoney(value) {
                 return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value ?? 0) + ' DH';
@@ -69,8 +82,9 @@
                 <div class="px-3 py-2 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 {{ $formActive ? 'bg-slate-50 dark:bg-slate-800/60' : 'bg-slate-100 dark:bg-slate-800/80' }}">
                     <h2 class="text-sm font-semibold {{ $formActive ? 'text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400' }}">
                         @if(! $formActive)
-                            <span x-show="!selected">Fiche commercial — sélectionnez un commercial dans le tableau</span>
-                            <span x-show="selected" x-cloak x-text="'Fiche commercial — ' + (selected?.formatted_id ?? '') + ' · ' + (selected?.name ?? '')"></span>
+                            Fiche commercial — cliquez sur un commercial pour afficher sa fiche
+                        @elseif($isView && $formCommercial)
+                            Fiche commercial — {{ $formCommercial->formattedCommercialId() }} · {{ $formCommercial->name }}
                         @elseif($isEdit)
                             Modifier — {{ $formCommercial->formattedCommercialId() }} · {{ $formCommercial->name }}
                         @else
@@ -79,7 +93,9 @@
                     </h2>
                     <span class="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">
                         @if(! $formActive)
-                            Utilisez la flèche sur « Nom commercial » pour consulter
+                            Sélectionnez un commercial dans le tableau
+                        @elseif($isView)
+                            Cliquez sur « Modifier » pour changer une ou plusieurs informations
                         @elseif($isEdit)
                             Modifiez puis cliquez sur « Modifier » pour enregistrer
                         @else
@@ -88,6 +104,31 @@
                     </span>
                 </div>
 
+                @if($formCommercial && ($isView || $isEdit))
+                    <div class="px-3 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                            <div class="rounded-lg border border-slate-200 dark:border-slate-700 px-2 py-1.5">
+                                <p class="text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Cmd. livrées</p>
+                                <p class="text-sm font-semibold tabular-nums">{{ $formCommercial->delivered_orders_count ?? 0 }}</p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 dark:border-slate-700 px-2 py-1.5">
+                                <p class="text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">CA vendu</p>
+                                <p class="text-sm font-semibold tabular-nums">{{ number_format($formCommercial->total_sales ?? 0, 2, ',', ' ') }} DH</p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 dark:border-slate-700 px-2 py-1.5">
+                                <p class="text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Commissions</p>
+                                <p class="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">{{ number_format($formCommercial->total_commissions ?? 0, 2, ',', ' ') }} DH</p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 dark:border-slate-700 px-2 py-1.5">
+                                <p class="text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Statut compte</p>
+                                <p class="text-sm font-semibold {{ $formCommercial->is_active ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
+                                    {{ $formCommercial->is_active ? 'Actif' : 'Inactif' }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
                 <div class="relative transition-opacity" :class="!formActive && 'opacity-55'">
                     <div
                         x-show="!formActive"
@@ -95,15 +136,14 @@
                         class="absolute inset-0 z-10 bg-slate-200/25 dark:bg-slate-900/20 cursor-not-allowed"
                     ></div>
 
-                    <fieldset x-bind:disabled="!formActive" class="border-0 p-0 m-0 min-w-0">
+                    <fieldset x-bind:disabled="!formActive || isView" class="border-0 p-0 m-0 min-w-0">
                         <div class="admin-order-form-bar">
                             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-x-2 gap-y-2">
                                 <div>
                                     <label class="admin-order-form-label">ID commercial</label>
                                     <input
                                         type="text"
-                                        value="{{ $isEdit ? $formCommercial->formattedCommercialId() : $previewCommercialId }}"
-                                        x-bind:value="formActive ? undefined : (selected?.formatted_id ?? '')"
+                                        value="{{ $formCommercial?->formattedCommercialId() ?? $previewCommercialId }}"
                                         readonly
                                         class="admin-order-form-readonly font-mono text-xs"
                                     >
@@ -115,7 +155,6 @@
                                         id="commercial_name"
                                         name="name"
                                         value="{{ old('name', $formCommercial->name ?? '') }}"
-                                        x-bind:value="formActive ? undefined : (selected?.name ?? '')"
                                         required
                                         class="admin-order-form-input"
                                     >
@@ -128,7 +167,6 @@
                                         id="commercial_phone"
                                         name="phone"
                                         value="{{ old('phone', $formCommercial->phone ?? '') }}"
-                                        x-bind:value="formActive ? undefined : (selected?.phone ?? '')"
                                         placeholder="06..."
                                         class="admin-order-form-input"
                                     >
@@ -142,7 +180,6 @@
                                             id="commercial_email_local"
                                             name="email_local"
                                             value="{{ $commercialEmailLocal }}"
-                                            x-bind:value="formActive ? undefined : emailLocalFromFull(selected?.email ?? '')"
                                             required
                                             autocomplete="username"
                                             placeholder="prenom.nom"
@@ -157,7 +194,7 @@
                             </div>
                         </div>
 
-                        <div class="admin-order-form-bar" @if(! $formActive) x-cloak x-show="formActive" @endif>
+                        <div class="admin-order-form-bar" @if($isView) x-cloak @elseif(! $formActive) x-cloak x-show="formActive" @endif>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-2 gap-y-2">
                                 <div>
                                     <label for="commercial_password" class="admin-order-form-label">
@@ -198,7 +235,6 @@
                                         id="commercial_whatsapp"
                                         name="whatsapp"
                                         value="{{ old('whatsapp', $formCommercial->whatsapp ?? '') }}"
-                                        x-bind:value="formActive ? undefined : (selected?.whatsapp ?? '')"
                                         placeholder="06..."
                                         class="admin-order-form-input"
                                     >
@@ -211,7 +247,6 @@
                                         id="commercial_prospect_zone"
                                         name="prospect_zone"
                                         value="{{ old('prospect_zone', $formCommercial->prospect_zone ?? '') }}"
-                                        x-bind:value="formActive ? undefined : (selected?.prospect_zone ?? '')"
                                         placeholder="Ex. Casablanca, Rabat..."
                                         class="admin-order-form-input"
                                     >
@@ -224,7 +259,6 @@
                                         id="commercial_commission_rate"
                                         name="commission_rate"
                                         value="{{ old('commission_rate', $formCommercial->commission_rate ?? $defaultCommissionRate) }}"
-                                        x-bind:value="formActive ? undefined : (selected?.commission_rate ?? defaultCommissionRate)"
                                         min="0"
                                         max="100"
                                         step="0.1"
@@ -240,9 +274,13 @@
                         @if($formActive)
                         <div class="admin-order-form-bar">
                             <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Autorisations d'accès</p>
-                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">
-                                Définissez ce que ce commercial peut faire dans l'application (comme dans Paramètres &gt; Autorisations).
-                            </p>
+                            @if($isView)
+                                <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">Lecture seule — cliquez sur « Modifier » pour changer les autorisations.</p>
+                            @else
+                                <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">
+                                    Définissez ce que ce commercial peut faire dans l'application (comme dans Paramètres &gt; Autorisations).
+                                </p>
+                            @endif
                             @include('settings.partials.permissions-groups-panel', [
                                 'permissionGroups' => $permissionGroups ?? [],
                                 'permissions' => $commercialPermissions ?? [],
@@ -254,27 +292,24 @@
 
                 <div class="admin-product-form-actions">
                     <div class="flex flex-wrap items-center justify-end gap-2 notranslate" translate="no">
-                        @if($formActive && $isEdit)
-                            <x-admin.action-btn type="submit" icon="edit" label="Modifier" variant="info" />
-                        @elseif($formActive)
-                            <x-admin.action-btn type="submit" icon="save" label="Valider" variant="success" />
-                        @else
+                        @if(! $formActive)
                             <x-admin.action-btn
                                 icon="plus"
                                 label="Ajouter"
                                 variant="success"
                                 @click="window.location.href = '{{ $nouveauUrl }}'"
                             />
-                        @endif
-
-                        @if(! ($formActive && $isEdit))
+                        @elseif($isEdit)
+                            <x-admin.action-btn type="submit" icon="edit" label="Modifier" variant="info" />
+                        @elseif($isView)
                             <x-admin.action-btn
                                 icon="edit"
                                 label="Modifier"
                                 variant="info"
-                                x-bind:disabled="!selectedId || (formActive && !isEdit)"
-                                @click="selectedId && !formActive && (window.location.href = '{{ $editBaseUrl }}?edit=' + selectedId)"
+                                @click="openCommercialEdit({{ $formCommercial->id }})"
                             />
+                        @else
+                            <x-admin.action-btn type="submit" icon="save" label="Valider" variant="success" />
                         @endif
 
                         <x-admin.action-btn
@@ -356,7 +391,7 @@
                                                 type="button"
                                                 class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                                                 :class="selectedId === commercial.id ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 font-medium' : 'text-slate-700 dark:text-slate-200'"
-                                                @click="pickCommercial(commercial.id); pickerOpen = false"
+                                                @click="openCommercialView(commercial.id); pickerOpen = false"
                                             >
                                                 <span class="font-mono text-xs text-slate-500 dark:text-slate-400" x-text="commercial.formatted_id"></span>
                                                 <span x-text="commercial.name"></span>
@@ -408,8 +443,7 @@
                             <tr
                                 class="admin-row-hover cursor-pointer"
                                 :class="selectedId === {{ $commercial->id }} ? 'admin-row-selected' : ''"
-                                @click="pickCommercial({{ $commercial->id }})"
-                                @dblclick.stop="window.location.href = '{{ $editBaseUrl }}?edit={{ $commercial->id }}'"
+                                @click="openCommercialView({{ $commercial->id }})"
                             >
                                 <td class="admin-table-cell-muted font-mono text-xs text-center align-middle">{{ $commercial->formattedCommercialId() }}</td>
                                 <td class="admin-table-cell font-medium text-center align-middle">{{ $commercial->name }}</td>

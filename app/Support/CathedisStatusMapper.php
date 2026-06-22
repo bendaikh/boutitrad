@@ -77,6 +77,32 @@ class CathedisStatusMapper
         return null;
     }
 
+    /**
+     * Statuts Cathedis proposés dans les filtres commandes.
+     *
+     * @return list<string>
+     */
+    public static function filterOptions(): array
+    {
+        return [
+            'Confirmé',
+            'En Attente Ramassage',
+            'En préparation',
+            'En cours de livraison',
+            'Expédié',
+            'Livré',
+            'Retour',
+            'Annulé Au Téléphone',
+            'Client Injoignable CRC',
+            '__non_sync__',
+        ];
+    }
+
+    public static function filterLabel(string $value): string
+    {
+        return $value === '__non_sync__' ? 'Non synchronisé' : $value;
+    }
+
     public static function rank(OrderStatus $status): int
     {
         return match ($status) {

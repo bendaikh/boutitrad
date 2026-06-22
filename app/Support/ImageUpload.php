@@ -26,8 +26,31 @@ class ImageUpload
         return $path;
     }
 
+    public static function assertNoFailedUploadAttempt(Request $request, string $field): void
+    {
+        if (! isset($_FILES[$field]) || ! is_array($_FILES[$field])) {
+            return;
+        }
+
+        $error = (int) ($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE);
+
+        if ($error === UPLOAD_ERR_NO_FILE) {
+            return;
+        }
+
+        if ($error === UPLOAD_ERR_OK) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            $field => self::uploadErrorMessage($error),
+        ]);
+    }
+
     public static function assertValidUpload(Request $request, string $field): void
     {
+        self::assertNoFailedUploadAttempt($request, $field);
+
         if (! $request->hasFile($field)) {
             return;
         }
@@ -38,14 +61,19 @@ class ImageUpload
             return;
         }
 
-        $message = match ($file->getError()) {
+        throw ValidationException::withMessages([
+            $field => self::uploadErrorMessage($file->getError()),
+        ]);
+    }
+
+    private static function uploadErrorMessage(int $error): string
+    {
+        return match ($error) {
             UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'L\'image est trop volumineuse (maximum 5 Mo).',
             UPLOAD_ERR_PARTIAL => 'Le téléchargement de l\'image a été interrompu. Réessayez.',
             UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE, UPLOAD_ERR_EXTENSION => 'Le serveur ne peut pas enregistrer l\'image. Contactez l\'administrateur.',
             default => 'Le fichier n\'a pas pu être téléchargé. Utilisez JPG, PNG ou WebP (max. 5 Mo).',
         };
-
-        throw ValidationException::withMessages([$field => $message]);
     }
 
     public static function storeFromRequest(Request $request, string $field, string $directory): ?string

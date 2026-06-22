@@ -138,6 +138,23 @@ class Order extends Model
         return round((float) $this->total, 2);
     }
 
+    public function itemsSubtotal(): float
+    {
+        if ($this->relationLoaded('items')) {
+            return round((float) $this->items->sum('total'), 2);
+        }
+
+        return round((float) $this->items()->sum('total'), 2);
+    }
+
+    public function computedGrandTotal(): float
+    {
+        return max(0, round(
+            $this->itemsSubtotal() + (float) $this->delivery_cost - (float) $this->discount,
+            2,
+        ));
+    }
+
     public function paidAmount(): float
     {
         return round((float) $this->amount_paid, 2);
@@ -285,7 +302,37 @@ class Order extends Model
 
     public function hasShippingRemark(): bool
     {
+        $this->loadMissing('items');
+
+        if ($this->items->isNotEmpty()) {
+            return $this->items->every(fn (OrderItem $item) => filled(trim((string) $item->remark)));
+        }
+
         return filled(trim((string) $this->shipping_remark));
+    }
+
+    public function combinedShippingRemark(): string
+    {
+        $this->loadMissing('items');
+
+        $itemRemarks = $this->items
+            ->map(function (OrderItem $item) {
+                $remark = trim((string) $item->remark);
+
+                if ($remark === '') {
+                    return null;
+                }
+
+                return $item->product_name.': '.$remark;
+            })
+            ->filter()
+            ->implode("\n");
+
+        if ($itemRemarks !== '') {
+            return $itemRemarks;
+        }
+
+        return trim((string) $this->shipping_remark);
     }
 
     public function clientDetailsComplete(): bool
@@ -322,7 +369,7 @@ class Order extends Model
         }
 
         if (! $this->hasShippingRemark()) {
-            $missing[] = 'remarque NB';
+            $missing[] = 'remarque NB pour chaque produit';
         }
 
         return $missing;

@@ -25,6 +25,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use App\Support\PhoneHelper;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -44,7 +45,7 @@ class OrderController extends Controller
 
         return view('orders.index', [
             'items' => $this->orderList->filteredItems($request, $user),
-            'statuses' => $this->orderList->statuses(),
+            'statuses' => $this->orderList->cathedisStatuses(),
             'categories' => $this->orderList->categories(),
             'cities' => $this->orderList->cities(),
         ]);
@@ -81,6 +82,7 @@ class OrderController extends Controller
                 'unit_price' => (float) $item->unit_price,
                 'product_image' => $item->product_image,
                 'product_image_url' => $item->productImageUrl(),
+                'remark' => $item->remark,
             ])->values()->all();
         }
 
@@ -195,6 +197,7 @@ class OrderController extends Controller
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.product_image' => ImageUpload::RULE,
             'items.*.existing_product_image' => 'nullable|string|max:255',
+            'items.*.remark' => 'nullable|string|max:2000',
             'submit_action' => 'nullable|in:draft,submit',
         ]);
 
@@ -219,11 +222,9 @@ class OrderController extends Controller
             $validated['city_id'] = $request->input('city_id');
         }
 
-        if ($isCommercial && ($validated['submit_action'] ?? '') === 'submit') {
-            $request->validate([
-                'shipping_remark' => 'required|string|max:2000',
-            ]);
+        $this->assertValidClientPhone($validated, $request);
 
+        if ($isCommercial && ($validated['submit_action'] ?? '') === 'submit') {
             foreach (array_keys($validated['items']) as $index) {
                 $hasNewPhoto = $request->hasFile("items.{$index}.product_image");
                 $hasExistingPhoto = filled($request->input("items.{$index}.existing_product_image"));
@@ -233,10 +234,34 @@ class OrderController extends Controller
                         "items.{$index}.product_image" => 'Ajoutez une photo pour chaque produit.',
                     ]);
                 }
+
+                if (! filled(trim((string) $request->input("items.{$index}.remark", '')))) {
+                    throw ValidationException::withMessages([
+                        "items.{$index}.remark" => 'Saisissez une NB pour chaque produit.',
+                    ]);
+                }
             }
         }
 
         return $validated;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function assertValidClientPhone(array $validated, Request $request): void
+    {
+        $phone = $validated['client_phone'] ?? null;
+
+        if (! filled($phone) && ! empty($validated['client_id'])) {
+            $phone = Client::query()->whereKey($validated['client_id'])->value('phone');
+        }
+
+        if (! PhoneHelper::hasTenDigits($phone)) {
+            throw ValidationException::withMessages([
+                'client_phone' => 'Le téléphone client doit contenir exactement 10 chiffres.',
+            ]);
+        }
     }
 
     private function resolveClientId(array $validated, User $user): int
@@ -251,8 +276,10 @@ class OrderController extends Controller
         }
 
         if (! empty($validated['client_phone'])) {
+            $normalizedPhone = PhoneHelper::normalize($validated['client_phone']);
             $existing = Client::query()
-                ->where('phone', $validated['client_phone'])
+                ->where('phone', $normalizedPhone)
+                ->orWhere('phone', $validated['client_phone'])
                 ->first();
 
             if ($existing) {
@@ -283,7 +310,7 @@ class OrderController extends Controller
 
         $attributes = [
             'name' => $validated['client_name'] ?? null,
-            'phone' => $validated['client_phone'] ?? null,
+            'phone' => PhoneHelper::normalize($validated['client_phone'] ?? null),
             'address' => $validated['client_address'] ?? null,
             'city_id' => $city?->id,
             'city' => $city?->name,
@@ -328,6 +355,7 @@ class OrderController extends Controller
                     'unit_price' => $unitPrice,
                     'total' => $lineTotal,
                     'product_image' => $this->resolveItemProductImage($request, $index, $item),
+                    'remark' => filled($item['remark'] ?? null) ? trim((string) $item['remark']) : null,
                 ];
             }
 
@@ -358,6 +386,7 @@ class OrderController extends Controller
                     'product_id' => $item['product']->id,
                     'product_name' => $item['product']->name,
                     'product_image' => $item['product_image'],
+                    'remark' => $item['remark'] ?? null,
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
                     'total' => $item['total'],
@@ -437,6 +466,7 @@ class OrderController extends Controller
                     'unit_price' => $unitPrice,
                     'total' => $lineTotal,
                     'product_image' => $this->resolveItemProductImage($request, $index, $item),
+                    'remark' => filled($item['remark'] ?? null) ? trim((string) $item['remark']) : null,
                 ];
             }
 
@@ -473,6 +503,7 @@ class OrderController extends Controller
                     'product_id' => $item['product']->id,
                     'product_name' => $item['product']->name,
                     'product_image' => $item['product_image'],
+                    'remark' => $item['remark'] ?? null,
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
                     'total' => $item['total'],

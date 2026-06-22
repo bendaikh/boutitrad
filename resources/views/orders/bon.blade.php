@@ -74,6 +74,12 @@
                                                 @if($item->product?->sku)
                                                     <div class="text-xs font-mono text-slate-500 mt-0.5">{{ $item->product->sku }}</div>
                                                 @endif
+                                                @if(filled($item->remark))
+                                                    <div class="mt-2 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-900/20 px-2 py-1.5">
+                                                        <p class="text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">NB</p>
+                                                        <p class="text-xs whitespace-pre-wrap text-slate-700 dark:text-slate-200">{{ $item->remark }}</p>
+                                                    </div>
+                                                @endif
                                             </td>
                                             <td class="py-3 pr-3 text-center align-middle tabular-nums">{{ $item->quantity }}</td>
                                             <td class="py-3 pr-3 text-right align-middle tabular-nums">{{ number_format($item->unit_price, 2, ',', ' ') }} DH</td>
@@ -82,21 +88,21 @@
                                     @endforeach
                                 </tbody>
                                 <tfoot class="border-t border-slate-200 dark:border-slate-700">
-                                    <tr><td colspan="4" class="pt-3 text-right text-slate-500">Sous-total</td><td class="pt-3 text-right tabular-nums">{{ number_format($order->subtotal, 2, ',', ' ') }} DH</td></tr>
+                                    <tr><td colspan="4" class="pt-3 text-right text-slate-500">Sous-total articles</td><td class="pt-3 text-right tabular-nums">{{ number_format($order->itemsSubtotal(), 2, ',', ' ') }} DH</td></tr>
                                     @if($order->delivery_cost > 0)
                                         <tr><td colspan="4" class="pt-1 text-right text-slate-500">Livraison</td><td class="pt-1 text-right tabular-nums">{{ number_format($order->delivery_cost, 2, ',', ' ') }} DH</td></tr>
                                     @endif
                                     @if($order->discount > 0)
                                         <tr><td colspan="4" class="pt-1 text-right text-slate-500">Remise</td><td class="pt-1 text-right tabular-nums text-red-600">-{{ number_format($order->discount, 2, ',', ' ') }} DH</td></tr>
                                     @endif
-                                    <tr><td colspan="4" class="pt-2 text-right font-semibold">Total</td><td class="pt-2 text-right font-bold text-brand-600 tabular-nums">{{ number_format($order->total, 2, ',', ' ') }} DH</td></tr>
+                                    <tr><td colspan="4" class="pt-2 text-right font-semibold">Total</td><td class="pt-2 text-right font-bold text-brand-600 tabular-nums">{{ number_format($order->computedGrandTotal(), 2, ',', ' ') }} DH</td></tr>
                                 </tfoot>
                             </table>
                         </div>
 
                         <div class="rounded-lg border border-dashed border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-900/10 p-4">
-                            <p class="text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300 mb-2">NB — Remarque</p>
-                            <p class="text-sm whitespace-pre-wrap text-slate-800 dark:text-slate-200">{{ $order->shipping_remark ?: '—' }}</p>
+                            <p class="text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300 mb-2">NB — Remarques produits</p>
+                            <p class="text-sm whitespace-pre-wrap text-slate-800 dark:text-slate-200">{{ $order->combinedShippingRemark() ?: '—' }}</p>
                         </div>
                     </div>
                 </div>
@@ -126,8 +132,8 @@
                         </div>
 
                         <div class="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-900/10 p-3">
-                            <p class="text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300 mb-1">NB</p>
-                            <p class="text-sm whitespace-pre-wrap text-slate-800 dark:text-slate-200">{{ $order->shipping_remark ?: '—' }}</p>
+                            <p class="text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300 mb-1">NB — Remarques produits</p>
+                            <p class="text-sm whitespace-pre-wrap text-slate-800 dark:text-slate-200">{{ $order->combinedShippingRemark() ?: '—' }}</p>
                         </div>
 
                         @if($order->client->deliveryCityName() === '' || empty($order->client->phone) || empty($order->client->address))

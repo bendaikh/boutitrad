@@ -43,8 +43,21 @@ class CommercialController extends Controller
             ? User::query()->where('role', UserRole::Commercial)->find($request->edit)
             : null;
 
+        $viewingCommercial = $request->filled('view') && ! $editingCommercial
+            ? User::query()->where('role', UserRole::Commercial)->find($request->view)
+            : null;
+
+        if ($viewingCommercial) {
+            $viewingCommercial = $this->commercialRowFor($viewingCommercial);
+        }
+
+        if ($editingCommercial) {
+            $editingCommercial = $this->commercialRowFor($editingCommercial);
+        }
+
         $commercials = $this->commercialRows();
-        $selectedCommercialId = $editingCommercial?->id ?? ($request->filled('selected') ? (int) $request->input('selected') : null);
+        $displayCommercial = $editingCommercial ?? $viewingCommercial;
+        $selectedCommercialId = $displayCommercial?->id ?? ($request->filled('selected') ? (int) $request->input('selected') : null);
 
         return view('commercials.index', [
             'commercials' => $commercials,
@@ -61,16 +74,19 @@ class CommercialController extends Controller
                 'delivered_orders_count' => $commercial->delivered_orders_count ?? 0,
                 'total_sales' => (float) ($commercial->total_sales ?? 0),
                 'total_commissions' => (float) ($commercial->total_commissions ?? 0),
+                'is_active' => (bool) $commercial->is_active,
             ])->values(),
             'editingCommercial' => $editingCommercial,
-            'formActive' => $editingCommercial !== null || $request->boolean('new') || $request->session()->has('errors'),
+            'viewingCommercial' => $viewingCommercial,
+            'isViewMode' => $viewingCommercial !== null && $editingCommercial === null,
+            'formActive' => $editingCommercial !== null || $viewingCommercial !== null || $request->boolean('new') || $request->session()->has('errors'),
             'previewCommercialId' => User::previewCommercialId(),
             'defaultCommissionRate' => (float) Setting::get('commission_rate', 5),
             'commercialView' => false,
             'permissionGroups' => PermissionCatalog::groupsForRole('commercial'),
             'commercialPermissions' => old(
                 'permissions',
-                $editingCommercial?->effectivePermissions() ?? PermissionCatalog::defaultsForRole('commercial')
+                $displayCommercial?->effectivePermissions() ?? PermissionCatalog::defaultsForRole('commercial')
             ),
             'selectedCommercialId' => $selectedCommercialId,
         ]);
@@ -102,7 +118,7 @@ class CommercialController extends Controller
         ]);
 
         return redirect()
-            ->route('commercials.index', ['selected' => $user->id])
+            ->route('commercials.index', ['view' => $user->id])
             ->with('success', 'Commercial créé. Il peut se connecter avec son login et mot de passe.');
     }
 
@@ -134,7 +150,7 @@ class CommercialController extends Controller
         $user->update($payload);
 
         return redirect()
-            ->route('commercials.index', ['selected' => $user->id])
+            ->route('commercials.index', ['view' => $user->id])
             ->with('success', 'Commercial mis à jour.');
     }
 

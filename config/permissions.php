@@ -120,7 +120,7 @@ return [
             'orders.view', 'orders.create', 'orders.update',
             'commercials.view',
             'sales.balance.view', 'sales.balance.print',
-            'payments.view', 'payments.create',
+            'payments.view',
             'stock.view', 'stock.print',
         ],
         'gestionnaire_stock' => [

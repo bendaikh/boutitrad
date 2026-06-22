@@ -1,6 +1,6 @@
 ﻿<x-admin-layout title="Commandes">
     @php
-        $filterParams = request()->only(['client', 'category_id', 'ville', 'status']);
+        $filterParams = request()->only(['delivery_ref', 'date_from', 'date_to', 'category_id', 'ville', 'cathedis_status']);
         $ordersMeta = [];
 
         foreach ($items as $item) {
@@ -59,110 +59,107 @@
             @method('DELETE')
         </form>
 
-        <x-admin.list-page>
+        <x-admin.list-page class="!gap-2 !py-3 sm:!py-4">
             <x-slot:toolbar>
-                @if(auth()->user()->isSuperAdmin() || auth()->user()->isCommercial())
-                    <div class="mb-3 xl:hidden">
-                        <a
-                            href="{{ route('orders.create') }}"
-                            class="flex w-full items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 shadow-sm"
-                        >
-                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                            Nouvelle commande
-                        </a>
-                    </div>
-                @endif
-
-                <div class="flex flex-col gap-3 w-full">
-                    <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4 w-full">
-                        <form method="GET" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2 flex-1 items-end min-w-0">
-                            <div>
-                                <label for="filter-client" class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Client (ID ou nom)</label>
-                                <input
-                                    type="text"
-                                    id="filter-client"
-                                    name="client"
-                                    value="{{ request('client') }}"
-                                    placeholder="CL-00001 ou nom..."
-                                    class="form-input w-full text-sm py-1.5"
-                                >
+                <div class="admin-form-shell max-w-full shadow-sm">
+                    <form method="GET">
+                        <div class="px-2 py-1.5 sm:px-3 sm:py-2 border-b border-slate-200 dark:border-slate-700">
+                            <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-[repeat(6,minmax(0,1fr))_auto] gap-1.5 sm:gap-2 items-end">
+                                <div>
+                                    <label for="filter-date-from" class="block text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-0.5">Du</label>
+                                    <input type="date" id="filter-date-from" name="date_from" value="{{ request('date_from') }}" class="form-input w-full text-xs py-1">
+                                </div>
+                                <div>
+                                    <label for="filter-date-to" class="block text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-0.5">Au</label>
+                                    <input type="date" id="filter-date-to" name="date_to" value="{{ request('date_to') }}" class="form-input w-full text-xs py-1">
+                                </div>
+                                <div class="col-span-2 sm:col-span-1 xl:col-span-1">
+                                    <label for="filter-delivery-ref" class="block text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-0.5 truncate" title="Réf Bon Livraison Cathedis">Réf Cathedis</label>
+                                    <input type="text" id="filter-delivery-ref" name="delivery_ref" value="{{ request('delivery_ref') }}" placeholder="Réf…" class="form-input w-full text-xs py-1 font-mono">
+                                </div>
+                                <div>
+                                    <label for="filter-category" class="block text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-0.5">Catégorie</label>
+                                    <select id="filter-category" name="category_id" class="form-input w-full text-xs py-1">
+                                        <option value="">Toutes</option>
+                                        <option value="none" @selected(request('category_id') === 'none')>Sans cat.</option>
+                                        @foreach($categories as $category)
+                                            <option value="{{ $category->id }}" @selected((string) request('category_id') === (string) $category->id)>{{ $category->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="filter-ville" class="block text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-0.5">Ville</label>
+                                    <select id="filter-ville" name="ville" class="form-input w-full text-xs py-1">
+                                        <option value="">Toutes</option>
+                                        @foreach($cities as $cityOption)
+                                            <option value="{{ $cityOption->id }}" @selected((string) request('ville') === (string) $cityOption->id)>{{ $cityOption->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-span-2 sm:col-span-1 xl:col-span-1">
+                                    <label for="filter-cathedis-status" class="block text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-0.5">Statut Cathedis</label>
+                                    <select id="filter-cathedis-status" name="cathedis_status" class="form-input w-full text-xs py-1">
+                                        <option value="">Tous</option>
+                                        @foreach($statuses as $statusOption)
+                                            <option value="{{ $statusOption }}" @selected(request('cathedis_status') === $statusOption)>
+                                                {{ \App\Support\CathedisStatusMapper::filterLabel($statusOption) }}
+                                            </option>
+                                        @endforeach
+                                        <option value="__non_sync__" @selected(request('cathedis_status') === '__non_sync__')>Non synchronisé</option>
+                                    </select>
+                                </div>
+                                <div class="col-span-2 sm:col-span-3 xl:col-auto flex items-end gap-1 shrink-0">
+                                    <button type="submit" class="px-3 py-1 btn-dark text-xs whitespace-nowrap">Filtrer</button>
+                                    <a
+                                        href="{{ route('orders.index') }}"
+                                        @class([
+                                            'inline-flex items-center justify-center w-7 h-7 shrink-0 rounded-md border transition-colors',
+                                            'border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20' => array_filter($filterParams),
+                                            'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 text-slate-300 dark:text-slate-600 pointer-events-none' => ! array_filter($filterParams),
+                                        ])
+                                        title="Réinitialiser les filtres"
+                                        aria-label="Réinitialiser les filtres"
+                                        @if(! array_filter($filterParams)) aria-disabled="true" @endif
+                                    >
+                                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                        </svg>
+                                    </a>
+                                </div>
                             </div>
-                            <div>
-                                <label for="filter-category" class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Catégorie</label>
-                                <select id="filter-category" name="category_id" class="form-input w-full text-sm py-1.5">
-                                    <option value="">Toutes</option>
-                                    <option value="none" @selected(request('category_id') === 'none')>Sans catégorie</option>
-                                    @foreach($categories as $category)
-                                        <option value="{{ $category->id }}" @selected((string) request('category_id') === (string) $category->id)>{{ $category->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div>
-                                <label for="filter-ville" class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Ville livraison</label>
-                                <select id="filter-ville" name="ville" class="form-input w-full text-sm py-1.5">
-                                    <option value="">Toutes</option>
-                                    @foreach($cities as $cityOption)
-                                        <option value="{{ $cityOption->id }}" @selected((string) request('ville') === (string) $cityOption->id)>{{ $cityOption->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div>
-                                <label for="filter-status" class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Statut</label>
-                                <select id="filter-status" name="status" class="form-input w-full text-sm py-1.5">
-                                    <option value="">Tous</option>
-                                    @foreach($statuses as $s)
-                                        <option value="{{ $s->value }}" @selected(request('status') === $s->value)>{{ $s->label() }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="flex flex-nowrap items-end gap-1.5 shrink-0 sm:col-span-2 xl:col-auto">
-                                <button type="submit" class="px-4 py-1.5 btn-dark text-sm whitespace-nowrap shrink-0">Filtrer</button>
-                                <a
-                                    href="{{ route('orders.index') }}"
-                                    @class([
-                                        'inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg border transition-colors',
-                                        'border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20' => array_filter($filterParams),
-                                        'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 text-slate-300 dark:text-slate-600 pointer-events-none' => ! array_filter($filterParams),
-                                    ])
-                                    title="Annuler les filtres"
-                                    aria-label="Annuler les filtres"
-                                    @if(! array_filter($filterParams)) aria-disabled="true" @endif
-                                >
-                                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                    </svg>
-                                </a>
-                            </div>
-                        </form>
-
-                        @if(auth()->user()->isSuperAdmin() || auth()->user()->isCommercial())
-                            <div class="hidden xl:flex shrink-0 justify-end xl:pl-6 xl:ml-2 xl:border-l xl:border-slate-200 dark:xl:border-slate-700">
-                                <a href="{{ route('orders.create') }}" class="px-5 py-1.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 whitespace-nowrap shadow-sm">
-                                    + Nouvelle commande
-                                </a>
-                            </div>
-                        @endif
-                    </div>
-
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Sélectionnez une commande · double-clic pour visualiser le bon</p>
-                        <div class="flex flex-wrap items-center gap-2 notranslate" translate="no">
-                            <x-admin.action-btn
-                                icon="view"
-                                label="Visualiser"
-                                variant="info"
-                                x-bind:disabled="!selectedOrderId || !selectedMeta?.canView"
-                                @click="viewSelected()"
-                            />
-                            <x-admin.action-btn
-                                icon="delete"
-                                label="Supprimer"
-                                variant="danger-solid"
-                                x-bind:disabled="!selectedOrderId || !selectedMeta?.canModify"
-                                @click="deleteSelected()"
-                            />
                         </div>
-                    </div>
+
+                        <div class="px-2 py-1 sm:px-3 sm:py-1.5 bg-slate-50/80 dark:bg-slate-800/40 flex flex-wrap items-center justify-between gap-1.5">
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 hidden sm:block">Double-clic sur une ligne pour ouvrir le bon</p>
+                            <div class="flex flex-wrap items-center gap-1.5 ml-auto notranslate" translate="no">
+                                <x-admin.action-btn
+                                    icon="view"
+                                    label="Visualiser"
+                                    variant="info"
+                                    class="!px-2.5 !py-1 !text-xs"
+                                    x-bind:disabled="!selectedOrderId || !selectedMeta?.canView"
+                                    @click="viewSelected()"
+                                />
+                                <x-admin.action-btn
+                                    icon="delete"
+                                    label="Supprimer"
+                                    variant="danger-solid"
+                                    class="!px-2.5 !py-1 !text-xs"
+                                    x-bind:disabled="!selectedOrderId || !selectedMeta?.canModify"
+                                    @click="deleteSelected()"
+                                />
+                                @if(auth()->user()->isSuperAdmin() || auth()->user()->isCommercial())
+                                    <a
+                                        href="{{ route('orders.create') }}"
+                                        class="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-600 text-white rounded-lg text-xs font-medium hover:bg-brand-700 whitespace-nowrap"
+                                    >
+                                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                        Nouvelle
+                                    </a>
+                                @endif
+                            </div>
+                        </div>
+                    </form>
                 </div>
             </x-slot:toolbar>
 

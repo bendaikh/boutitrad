@@ -2,11 +2,12 @@
 
 namespace App\Services;
 
-use App\Enums\OrderStatus;
 use App\Models\Category;
 use App\Models\City;
+use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\User;
+use App\Support\CathedisStatusMapper;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -37,15 +38,17 @@ class OrderListService
                     $q->where('livreur_id', $user->id);
                 }
 
-                if ($request->filled('client')) {
-                    $term = trim($request->client);
-                    $q->whereHas('client', function ($cq) use ($term) {
-                        $cq->where('name', 'like', "%{$term}%");
-                        $numericId = preg_replace('/\D/', '', $term);
-                        if ($numericId !== '') {
-                            $cq->orWhere('id', (int) $numericId);
-                        }
-                    });
+                if ($request->filled('delivery_ref')) {
+                    $term = trim($request->delivery_ref);
+                    $q->where('partner_tracking_ref', 'like', "%{$term}%");
+                }
+
+                if ($request->filled('date_from')) {
+                    $q->whereDate('created_at', '>=', $request->date_from);
+                }
+
+                if ($request->filled('date_to')) {
+                    $q->whereDate('created_at', '<=', $request->date_to);
                 }
 
                 if ($request->filled('ville')) {
@@ -59,8 +62,17 @@ class OrderListService
                     });
                 }
 
-                if ($request->filled('status')) {
-                    $q->where('status', $request->status);
+                if ($request->filled('cathedis_status')) {
+                    $status = $request->cathedis_status;
+                    if ($status === '__non_sync__') {
+                        $q->whereNotNull('partner_tracking_ref')
+                            ->where(function ($sq) {
+                                $sq->whereNull('cathedis_status_code')
+                                    ->orWhere('cathedis_status_code', '');
+                            });
+                    } else {
+                        $q->where('cathedis_status_code', $status);
+                    }
                 }
             })
             ->when($request->filled('category_id'), function ($q) use ($request) {
@@ -84,9 +96,25 @@ class OrderListService
         return Category::orderBy('name')->get();
     }
 
-    public function statuses(): array
+    /**
+     * @return list<string>
+     */
+    public function cathedisStatuses(): array
     {
-        return OrderStatus::cases();
+        $fromDb = Order::query()
+            ->whereNotNull('cathedis_status_code')
+            ->where('cathedis_status_code', '!=', '')
+            ->distinct()
+            ->orderBy('cathedis_status_code')
+            ->pluck('cathedis_status_code')
+            ->all();
+
+        $defaults = array_filter(
+            CathedisStatusMapper::filterOptions(),
+            fn (string $status) => $status !== '__non_sync__',
+        );
+
+        return array_values(array_unique(array_merge($defaults, $fromDb)));
     }
 
     public function cities()

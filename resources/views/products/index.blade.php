@@ -60,6 +60,7 @@
                     'citiesData' => $citiesData ?? collect(),
                     'initialCityId' => $initialCityId ?? null,
                     'initialCityName' => $initialCityName ?? null,
+                    'draftImageUrl' => $draftImageUrl ?? null,
                 ])
             </div>
 

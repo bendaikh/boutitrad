@@ -15,6 +15,8 @@ use Illuminate\View\View;
 
 class ProductController extends Controller
 {
+    private const PRODUCT_DRAFT_IMAGE_KEY = 'product_draft_image';
+
     public function index(Request $request): View
     {
         $products = Product::with(['category', 'brand'])
@@ -45,6 +47,7 @@ class ProductController extends Controller
             'citiesData' => $this->citiesData(),
             'initialCityId' => $initialCityId,
             'initialCityName' => $initialCityName,
+            'draftImageUrl' => $this->draftImageUrl(),
         ]);
     }
 
@@ -55,7 +58,7 @@ class ProductController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        ImageUpload::assertValidUpload($request, 'product_image');
+        $stagedImage = $this->stageProductImage($request);
 
         $request->merge([
             'category_id' => $request->input('category_id') ?: null,
@@ -86,15 +89,16 @@ class ProductController extends Controller
         $validated['is_active'] = $request->boolean('is_active', true);
         $validated['city'] = $this->resolveCityName($request);
 
-        if ($path = ImageUpload::storeFromRequest($request, 'product_image', 'product-images')) {
-            $validated['image'] = $path;
+        if ($stagedImage) {
+            $validated['image'] = $stagedImage;
         }
 
-        unset($validated['product_image']);
+        unset($validated['product_image'], $validated['city_id']);
 
         $validated['sku'] = Product::generateSku();
 
         Product::create($validated);
+        session()->forget(self::PRODUCT_DRAFT_IMAGE_KEY);
 
         return redirect()->route('products.index')->with('success', 'Produit créé.');
     }
@@ -120,7 +124,7 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product): RedirectResponse
     {
-        ImageUpload::assertValidUpload($request, 'product_image');
+        $stagedImage = $this->stageProductImage($request);
 
         $request->merge([
             'category_id' => $request->input('category_id') ?: null,
@@ -155,18 +159,18 @@ class ProductController extends Controller
         if ($request->boolean('remove_image') && $product->image) {
             Storage::disk('public')->delete($product->image);
             $validated['image'] = null;
-        }
-
-        if ($request->hasFile('product_image')) {
-            if ($product->image) {
+            $this->forgetStagedProductImage();
+        } elseif ($stagedImage) {
+            if ($product->image && $product->image !== $stagedImage) {
                 Storage::disk('public')->delete($product->image);
             }
-            $validated['image'] = ImageUpload::storeFromRequest($request, 'product_image', 'product-images');
+            $validated['image'] = $stagedImage;
         }
 
-        unset($validated['product_image'], $validated['remove_image']);
+        unset($validated['product_image'], $validated['remove_image'], $validated['city_id']);
 
         $product->update($validated);
+        session()->forget(self::PRODUCT_DRAFT_IMAGE_KEY);
 
         return redirect()->route('products.index')->with('success', 'Produit mis à jour.');
     }
@@ -215,5 +219,52 @@ class ProductController extends Controller
         $city = trim((string) $request->input('city', ''));
 
         return $city !== '' ? $city : null;
+    }
+
+    private function stageProductImage(Request $request): ?string
+    {
+        ImageUpload::assertNoFailedUploadAttempt($request, 'product_image');
+
+        if ($request->hasFile('product_image')) {
+            ImageUpload::assertValidUpload($request, 'product_image');
+            $this->forgetStagedProductImage(false);
+            $path = ImageUpload::storeFromRequest($request, 'product_image', 'product-images');
+            if ($path) {
+                session([self::PRODUCT_DRAFT_IMAGE_KEY => $path]);
+
+                return $path;
+            }
+        }
+
+        $staged = session(self::PRODUCT_DRAFT_IMAGE_KEY);
+        if (is_string($staged) && Storage::disk('public')->exists($staged)) {
+            return $staged;
+        }
+
+        session()->forget(self::PRODUCT_DRAFT_IMAGE_KEY);
+
+        return null;
+    }
+
+    private function draftImageUrl(): ?string
+    {
+        $staged = session(self::PRODUCT_DRAFT_IMAGE_KEY);
+        if (! is_string($staged) || ! Storage::disk('public')->exists($staged)) {
+            return null;
+        }
+
+        return '/storage/'.$staged;
+    }
+
+    private function forgetStagedProductImage(bool $clearSession = true): void
+    {
+        $previous = session(self::PRODUCT_DRAFT_IMAGE_KEY);
+        if (is_string($previous) && Storage::disk('public')->exists($previous)) {
+            Storage::disk('public')->delete($previous);
+        }
+
+        if ($clearSession) {
+            session()->forget(self::PRODUCT_DRAFT_IMAGE_KEY);
+        }
     }
 }

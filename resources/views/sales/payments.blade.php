@@ -1,16 +1,19 @@
-﻿<x-admin-layout title="Paie Commerciaux" full-height>
+﻿<x-admin-layout :title="$isCommercialReader ? 'Ma paie commerciale' : 'Paie Commerciaux'" full-height>
     @php
         $formPayroll = $editingPayroll ?? null;
         $isEdit = (bool) $formPayroll;
         $formActive = ($formActive ?? false) || $errors->any();
         $payrollFilters = $payrollFilters ?? [];
+        $canManagePayrolls = $canManagePayrolls ?? false;
+        $isCommercialReader = $isCommercialReader ?? false;
+        $readerCommercialId = $readerCommercialId ?? null;
         $routeParams = fn (array $extra = []) => array_merge($payrollFilters, $extra);
         $nouveauUrl = route('sales.payments', $routeParams(['new' => 1]));
         $annulerUrl = route('sales.payments', $payrollFilters);
-        $editBaseUrl = route('sales.payments', $payrollFilters);
         $printUrl = route('sales.payments.print', $payrollFilters);
         $exportPdfUrl = route('sales.payments.export.pdf', $payrollFilters);
         $initialSelectedId = ($selectedPayrollId ?? null) ?? $formPayroll?->id;
+        $defaultCommercialId = old('commercial_id', $formPayroll?->commercial_id ?? ($readerCommercialId ?? ''));
     @endphp
 
     <div
@@ -18,8 +21,10 @@
             selectedId: {{ $initialSelectedId ?? 'null' }},
             formActive: {{ $formActive ? 'true' : 'false' }},
             isEdit: {{ $isEdit ? 'true' : 'false' }},
+            canManagePayrolls: {{ $canManagePayrolls ? 'true' : 'false' }},
+            isCommercialReader: {{ $isCommercialReader ? 'true' : 'false' }},
             payMonth: @js(old('pay_month', $formPayroll?->pay_month ?? now()->format('Y-m'))),
-            commercialId: @js(old('commercial_id', $formPayroll?->commercial_id ?? '')),
+            commercialId: @js($defaultCommercialId),
             paymentDate: @js(old('payment_date', $formPayroll?->payment_date?->format('Y-m-d') ?? date('Y-m-d'))),
             reference: @js($formPayroll?->reference ?? $previewReference),
             previewReference: @js($previewReference),
@@ -32,6 +37,7 @@
             commissionRate: {{ (float) old('commission_rate', $formPayroll?->commission_rate ?? 0) }},
             loadingStats: false,
             duplicateWarning: false,
+            payrollOrders: [],
             payrollFilters: @js($payrollFilters),
             paymentsIndexUrl: @js(route('sales.payments')),
         })"
@@ -39,6 +45,51 @@
         class="flex flex-col flex-1 min-h-0 w-full"
     >
         <div class="shrink-0 space-y-3 pb-3 border-b border-slate-200/80 dark:border-slate-800 bg-surface-muted dark:bg-slate-950">
+            @if($isCommercialReader)
+                <div class="admin-form-shell max-w-full">
+                    <div class="px-3 py-2.5 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-brand-50/80 to-white dark:from-brand-900/25 dark:to-slate-900">
+                        <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Consultation de ma paie</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Basée sur vos commandes confirmées du mois sélectionné</p>
+                    </div>
+
+                    <div class="admin-order-form-bar">
+                        <div class="admin-payroll-form-grid max-w-md">
+                            <div class="admin-order-form-field">
+                                <label for="reader_pay_month" class="admin-order-form-label text-center">Mois de Paie</label>
+                                <input type="month" id="reader_pay_month" x-model="payMonth" @change="fetchStats()" required class="admin-order-form-input text-center">
+                                <p class="admin-order-form-hint text-center">Période des ventes confirmées</p>
+                            </div>
+                            <div class="admin-order-form-field">
+                                <label class="admin-order-form-label text-center">Nbrs Ventes</label>
+                                <input type="text" readonly :value="formatInteger(salesCount)" class="admin-order-form-readonly tabular-nums text-center font-medium">
+                                <p class="admin-order-form-hint text-center">Ventes confirmées du mois</p>
+                            </div>
+                            <div class="admin-order-form-field">
+                                <label class="admin-order-form-label text-center">Mnt règlement</label>
+                                <input type="text" readonly :value="formatMoney(revenue)" class="admin-order-form-readonly tabular-nums text-center font-medium text-emerald-700 dark:text-emerald-400">
+                                <p class="admin-order-form-hint text-center">Chiffre réalisé</p>
+                            </div>
+                            <div class="admin-order-form-field">
+                                <label class="admin-order-form-label text-center">
+                                    Commission
+                                    <span x-show="commissionRate > 0" x-cloak class="normal-case font-normal text-slate-400" x-text="'(' + formatPercent(commissionRate) + ')'"></span>
+                                </label>
+                                <input type="text" readonly :value="formatMoney(commissionAmount)" class="admin-order-form-readonly tabular-nums text-center">
+                                <p class="admin-order-form-hint text-center">Taux appliqué sur le chiffre</p>
+                            </div>
+                            <div class="admin-order-form-field">
+                                <label class="admin-order-form-label text-center">Montant à Payer</label>
+                                <input type="text" readonly :value="formatMoney(amountToPay)" class="admin-order-form-readonly tabular-nums text-center font-semibold text-brand-800 dark:text-brand-300">
+                                <p class="admin-order-form-hint text-center">&nbsp;</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    @include('sales.partials.payroll-orders-table')
+                </div>
+            @endif
+
+            @if($canManagePayrolls)
             <form
                 id="payroll-form"
                 method="POST"
@@ -114,6 +165,8 @@
                     </div>
                 </div>
 
+                @include('sales.partials.payroll-orders-table', ['wrapperClass' => 'admin-order-form-bar mt-3'])
+
                 <div class="admin-product-form-actions">
                     <div class="flex flex-wrap items-center justify-end gap-2 w-full">
                         @if($isEdit)
@@ -124,10 +177,12 @@
                     </div>
                 </div>
             </form>
+            @endif
 
             <div class="admin-form-shell max-w-full">
                 <div class="admin-product-form-toolbar justify-end">
                     <div class="flex flex-wrap items-center justify-end gap-2">
+                        @if($canManagePayrolls)
                         <x-admin.action-btn
                             type="button"
                             icon="plus"
@@ -155,6 +210,7 @@
                                 @click="if (selectedId && confirm('Supprimer cette paie commerciale ?')) { $el.closest('form').submit(); }"
                             />
                         </form>
+                        @endif
                         <x-admin.action-btn
                             type="button"
                             icon="print"
@@ -175,27 +231,31 @@
         </div>
 
         <div class="flex-1 min-h-0 pt-3 overflow-hidden">
-            <x-admin.data-table class="payroll-table h-full min-h-0 rounded-xl" compact min-width="1100px">
-                <x-slot:header>Historique des paies</x-slot:header>
+            <x-admin.data-table class="payroll-table h-full min-h-0 rounded-xl" compact :min-width="$isCommercialReader ? '900px' : '1100px'">
+                <x-slot:header>{{ $isCommercialReader ? 'Historique de mes paies' : 'Historique des paies' }}</x-slot:header>
                 @if($payrolls->hasPages())
                     <x-slot:footer>{{ $payrolls->links() }}</x-slot:footer>
                 @endif
                 <colgroup>
-                    <col style="width: 9%">
-                    <col style="width: 11%">
-                    <col style="width: 11%">
+                    <col style="width: {{ $isCommercialReader ? '10%' : '9%' }}">
+                    <col style="width: {{ $isCommercialReader ? '13%' : '11%' }}">
+                    <col style="width: {{ $isCommercialReader ? '13%' : '11%' }}">
+                    @unless($isCommercialReader)
                     <col style="width: 18%">
-                    <col style="width: 8%">
-                    <col style="width: 14%">
-                    <col style="width: 14%">
-                    <col style="width: 15%">
+                    @endunless
+                    <col style="width: {{ $isCommercialReader ? '10%' : '8%' }}">
+                    <col style="width: {{ $isCommercialReader ? '18%' : '14%' }}">
+                    <col style="width: {{ $isCommercialReader ? '18%' : '14%' }}">
+                    <col style="width: {{ $isCommercialReader ? '18%' : '15%' }}">
                 </colgroup>
                 <thead>
                     <tr>
                         <th>Date</th>
                         <th>Réf Paie</th>
                         <th>Mois Payé</th>
+                        @unless($isCommercialReader)
                         <th>Nom Commercial</th>
+                        @endunless
                         <th>Nbrs Ventes</th>
                         <th>Chiffre Réalisé</th>
                         <th>Commission</th>
@@ -217,6 +277,7 @@
                                 <input type="month" name="pf_pay_month" value="{{ request('pf_pay_month') }}" onchange="this.form.submit()" aria-label="Filtrer par mois payé">
                             </x-sales.payroll-th-filter>
                         </th>
+                        @unless($isCommercialReader)
                         <th>
                             <x-sales.payroll-th-filter field="pf_commercial_id" :filters="$payrollFilters" class="admin-th-filter--wide">
                                 <select name="pf_commercial_id" onchange="this.form.submit()" aria-label="Filtrer par commercial">
@@ -227,26 +288,11 @@
                                 </select>
                             </x-sales.payroll-th-filter>
                         </th>
-                        <th>
-                            <x-sales.payroll-th-filter field="pf_sales_count" :filters="$payrollFilters" class="admin-th-filter--narrow">
-                                <input type="number" min="0" step="1" name="pf_sales_count" value="{{ request('pf_sales_count') }}" placeholder="Nbr" onchange="this.form.submit()" aria-label="Filtrer par nombre de ventes">
-                            </x-sales.payroll-th-filter>
-                        </th>
-                        <th>
-                            <x-sales.payroll-th-filter field="pf_revenue" :filters="$payrollFilters" class="admin-th-filter--medium">
-                                <input type="text" inputmode="decimal" name="pf_revenue" value="{{ request('pf_revenue') }}" placeholder="Min DH" onchange="this.form.submit()" aria-label="Filtrer par chiffre réalisé">
-                            </x-sales.payroll-th-filter>
-                        </th>
-                        <th>
-                            <x-sales.payroll-th-filter field="pf_commission" :filters="$payrollFilters" class="admin-th-filter--medium">
-                                <input type="text" inputmode="decimal" name="pf_commission" value="{{ request('pf_commission') }}" placeholder="Min DH" onchange="this.form.submit()" aria-label="Filtrer par commission">
-                            </x-sales.payroll-th-filter>
-                        </th>
-                        <th>
-                            <x-sales.payroll-th-filter field="pf_amount" :filters="$payrollFilters" class="admin-th-filter--medium">
-                                <input type="text" inputmode="decimal" name="pf_amount" value="{{ request('pf_amount') }}" placeholder="Min DH" onchange="this.form.submit()" aria-label="Filtrer par montant à payer">
-                            </x-sales.payroll-th-filter>
-                        </th>
+                        @endunless
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y">
@@ -254,12 +300,14 @@
                         <tr
                             class="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer"
                             :class="selectedId === {{ $payroll->id }} ? 'bg-brand-50 dark:bg-brand-900/20' : ''"
-                            @click="selectedId = {{ $payroll->id }}"
+                            @click="selectPayrollRow({{ $payroll->id }}, @js($payroll->pay_month))"
                         >
                             <td class="admin-table-cell">{{ $payroll->payment_date->format('d/m/Y') }}</td>
                             <td class="admin-table-cell font-mono text-xs">{{ $payroll->reference }}</td>
                             <td class="admin-table-cell">{{ $payroll->payMonthLabel() }}</td>
+                            @unless($isCommercialReader)
                             <td class="admin-table-cell font-medium">{{ $payroll->commercial?->name ?? '—' }}</td>
+                            @endunless
                             <td class="admin-table-cell tabular-nums">{{ number_format($payroll->sales_count, 0, ',', ' ') }}</td>
                             <td class="admin-table-cell tabular-nums">{{ number_format($payroll->revenue, 2, ',', ' ') }} DH</td>
                             <td class="admin-table-cell tabular-nums">{{ number_format($payroll->commission_amount, 2, ',', ' ') }} DH</td>
@@ -267,8 +315,8 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-5 py-8 text-center text-slate-500 dark:text-slate-400">
-                                Aucune paie commerciale enregistrée
+                            <td colspan="{{ $isCommercialReader ? 7 : 8 }}" class="px-5 py-8 text-center text-slate-500 dark:text-slate-400">
+                                {{ $isCommercialReader ? 'Aucune paie enregistrée pour votre compte' : 'Aucune paie commerciale enregistrée' }}
                             </td>
                         </tr>
                     @endforelse
@@ -282,8 +330,23 @@
         function payrollForm(config) {
             return {
                 ...config,
-                init() {
-                    if (this.formActive) {
+            init() {
+                if (this.isCommercialReader && this.commercialId) {
+                    this.fetchStats();
+                    return;
+                }
+
+                if (this.formActive) {
+                    this.fetchStats();
+                } else if (this.commercialId && this.payMonth) {
+                    this.fetchStats();
+                }
+            },
+                selectPayrollRow(id, payMonth) {
+                    this.selectedId = id;
+
+                    if (this.isCommercialReader) {
+                        this.payMonth = payMonth;
                         this.fetchStats();
                     }
                 },
@@ -320,6 +383,7 @@
                         this.commissionAmount = data.commission_amount ?? 0;
                         this.amountToPay = data.amount_to_pay ?? 0;
                         this.duplicateWarning = !! data.duplicate;
+                        this.payrollOrders = data.orders ?? [];
                     } catch (error) {
                         this.resetStats();
                     } finally {
@@ -333,6 +397,7 @@
                     this.commissionAmount = 0;
                     this.amountToPay = 0;
                     this.duplicateWarning = false;
+                    this.payrollOrders = [];
                 },
                 formatMoney(value) {
                     return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value ?? 0) + ' DH';

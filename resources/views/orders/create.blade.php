@@ -6,6 +6,7 @@
         enctype="multipart/form-data"
         class="admin-form-shell admin-order-create-form max-w-full mb-4 sm:mb-0"
         x-data="orderForm()"
+        @submit="validateBeforeSubmit($event)"
     >
         @csrf
         @if($editing) @method('PUT') @endif
@@ -170,8 +171,12 @@
                         :readonly="!canEditClientFields"
                         :required="canEditClientFields || isNewClient || !clientId"
                         :class="canEditClientFields ? 'admin-order-form-input' : 'admin-order-form-readonly'"
-                        placeholder="06..."
+                        placeholder="0612345678"
+                        maxlength="14"
+                        inputmode="numeric"
+                        @input="sanitizePhone()"
                     >
+                    <p x-show="clientPhone && !isPhoneValid()" x-cloak class="text-red-500 text-[10px] mt-0.5">Le téléphone doit contenir exactement 10 chiffres.</p>
                     @error('client_phone')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
                 </div>
                 @if(! $isCommercial)
@@ -388,6 +393,16 @@
                                 <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">JPG, PNG ou WebP — max. 5 Mo</p>
                                 <p x-show="item.existing_product_image && ! item.image_preview" class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">Photo déjà enregistrée sur cette ligne</p>
                             </div>
+                            <div class="flex-1 min-w-[14rem]">
+                                <label class="admin-order-form-label">NB — Remarque produit</label>
+                                <textarea
+                                    :name="'items['+index+'][remark]'"
+                                    x-model="item.remark"
+                                    rows="3"
+                                    placeholder="Ex. taille, couleur, instructions spécifiques…"
+                                    class="admin-order-form-input w-full text-xs"
+                                ></textarea>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -408,25 +423,14 @@
             @error('items')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
             @error('items.*.product_id')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
             @error('items.*.product_image')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+            @error('items.*.remark')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+            @if($isCommercial || $editing)
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-3">
+                    Chaque produit doit avoir une photo et une NB avant envoi à l'admin.
+                </p>
+            @endif
         </div>
 
-        @if($isCommercial || $editing)
-        <div class="admin-order-form-bar">
-            <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">NB — Remarque livraison</h2>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">À compléter avant envoi à l'admin. Une photo est requise pour chaque produit ci-dessus.</p>
-            <div>
-                <label for="shipping_remark" class="admin-order-form-label">NB — Remarque</label>
-                <textarea
-                    id="shipping_remark"
-                    name="shipping_remark"
-                    rows="4"
-                    placeholder="Ex. taille, couleur, instructions livraison, fragilité…"
-                    class="admin-order-form-input w-full"
-                >{{ old('shipping_remark', $order?->shipping_remark ?? '') }}</textarea>
-                @error('shipping_remark')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
-            </div>
-        </div>
-        @endif
         </div>
 
         <div class="admin-order-form-actions">
@@ -473,6 +477,7 @@
                 image_preview: null,
                 existing_product_image: data.product_image ?? '',
                 existing_image_url: data.product_image_url ?? null,
+                remark: data.remark ?? '',
             };
         }
 
@@ -750,6 +755,32 @@
             },
             orderTotal() {
                 return this.itemsSubtotal() + this.deliveryCostAmount();
+            },
+            phoneDigits() {
+                return String(this.clientPhone || '').replace(/\D/g, '');
+            },
+            isPhoneValid() {
+                return this.phoneDigits().length === 10;
+            },
+            sanitizePhone() {
+                if (! this.canEditClientFields) {
+                    return;
+                }
+
+                const digits = this.phoneDigits().slice(0, 10);
+                if (digits !== this.phoneDigits()) {
+                    this.clientPhone = digits;
+                }
+            },
+            validateBeforeSubmit(event) {
+                if (! this.isPhoneValid()) {
+                    event.preventDefault();
+                    alert('Le téléphone client doit contenir exactement 10 chiffres.');
+                    document.getElementById('client_phone')?.focus();
+                    return false;
+                }
+
+                return true;
             },
             formatMoney(value) {
                 const amount = Number(value) || 0;

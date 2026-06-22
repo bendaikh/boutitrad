@@ -111,10 +111,16 @@ class SalesController extends Controller
     public function payments(Request $request): View
     {
         $user = auth()->user();
+        $canManagePayrolls = $this->payrollService->canManagePayrolls($user);
+        $isCommercialReader = $user->isCommercial() && ! $canManagePayrolls;
         $editingPayroll = null;
 
-        if ($request->filled('selected')) {
+        if ($canManagePayrolls && $request->filled('selected')) {
             $editingPayroll = $this->payrollService->findForUser((int) $request->input('selected'), $user);
+        }
+
+        if ($isCommercialReader && ($request->boolean('new') || $request->filled('selected'))) {
+            return redirect()->route('sales.payments', $this->payrollService->activeFilters($request));
         }
 
         return view('sales.payments', [
@@ -122,9 +128,12 @@ class SalesController extends Controller
             'commercials' => $this->payrollService->commercials($user),
             'previewReference' => CommercialPayroll::previewReference(),
             'editingPayroll' => $editingPayroll,
-            'formActive' => $request->boolean('new') || $editingPayroll !== null,
+            'formActive' => $canManagePayrolls && ($request->boolean('new') || $editingPayroll !== null),
             'selectedPayrollId' => $editingPayroll?->id ?? ($request->filled('selected') ? (int) $request->input('selected') : null),
             'payrollFilters' => $this->payrollService->activeFilters($request),
+            'canManagePayrolls' => $canManagePayrolls,
+            'isCommercialReader' => $isCommercialReader,
+            'readerCommercialId' => $isCommercialReader ? $user->id : null,
         ]);
     }
 
