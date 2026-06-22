@@ -1,4 +1,4 @@
-@props(['label', 'value', 'color' => 'brand', 'icon' => null, 'compact' => false, 'variant' => 'default'])
+@props(['label', 'value', 'color' => 'brand', 'icon' => null, 'compact' => false, 'dense' => false, 'variant' => 'default'])
 
 @php
     $iconStyles = [
@@ -34,6 +34,13 @@
     'admin-card' => ! $isSolid,
     $solid['card'] => $isSolid,
 ])>
+    @if($dense)
+        <div class="px-2.5 py-2">
+            <p class="text-[9px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 truncate">{{ $label }}</p>
+            <p class="text-xs sm:text-sm font-bold mt-0.5 leading-tight tabular-nums text-slate-800 dark:text-slate-100 truncate">{{ $value }}</p>
+        </div>
+        <div class="h-0.5 {{ $isSolid ? $solid['bar'] : $style['bar'] }}"></div>
+    @else
     <div class="{{ $compact ? 'p-4' : 'p-5' }}">
         <div class="flex items-start justify-between gap-2">
             @if($icon)
@@ -59,4 +66,5 @@
         ])>{{ $value }}</p>
     </div>
     <div class="h-1.5 {{ $isSolid ? $solid['bar'] : $style['bar'] }}"></div>
+    @endif
 </div>

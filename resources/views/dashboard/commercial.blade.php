@@ -1,7 +1,7 @@
 <x-admin-layout :title="$commercial->name">
     @php
         $isOwnDashboard = auth()->id() === $commercial->id;
-        $dashboardTitle = $isOwnDashboard ? 'Mon tableau de bord' : 'Tableau de bord — '.$commercial->name;
+        $dashboardTitle = $isOwnDashboard ? 'Mon tableau de bord' : 'Tableau de bord commercial';
     @endphp
 
     <x-admin.list-page>
@@ -9,9 +9,9 @@
             <div class="space-y-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">{{ $dashboardTitle }}</h2>
+                        <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">{{ $commercial->name }}</h2>
                         <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            {{ $commercial->formattedCommercialId() }} · {{ $commercial->email }}
+                            {{ $dashboardTitle }} · {{ $commercial->formattedCommercialId() }} · {{ $commercial->email }}
                         </p>
                     </div>
                     @if($isOwnDashboard)

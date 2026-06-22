@@ -112,6 +112,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('charges/print', [ChargeController::class, 'print'])->name('charges.print');
         Route::get('charges/export/pdf', [ChargeController::class, 'exportPdf'])->name('charges.export.pdf');
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('reports/{section}/print', [ReportController::class, 'printSection'])->name('reports.section.print')->whereIn('section', ['purchases', 'sales', 'stock', 'charges']);
+        Route::get('reports/{section}/export/pdf', [ReportController::class, 'exportPdfSection'])->name('reports.section.export.pdf')->whereIn('section', ['purchases', 'sales', 'stock', 'charges']);
         Route::resource('users', UserController::class)->except(['show']);
         Route::get('settings/permissions', [SettingController::class, 'permissions'])->name('settings.permissions');
         Route::post('settings/permissions', [SettingController::class, 'storePermissionUser'])->name('settings.permissions.store');
