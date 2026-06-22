@@ -41,17 +41,24 @@ class ReportService
     }
 
     /**
-     * @return Collection<int, array{date: string, reference: string, supplier: string, amount: float}>
+     * @return Collection<int, array{date: string, reference: string, product: string, supplier: string, amount: float}>
      */
     public function purchases(?string $dateFrom = null, ?string $dateTo = null): Collection
     {
-        return $this->purchaseMovementsQuery($dateFrom, $dateTo)
+        [$from, $to] = $this->resolveDateRange($dateFrom, $dateTo);
+
+        return Product::query()
+            ->when($from, fn ($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to))
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->get()
-            ->map(fn (StockMovement $movement) => [
-                'date' => $movement->created_at->format('d/m/Y'),
-                'reference' => $this->purchaseReference($movement),
-                'supplier' => $movement->product?->supplier ?: '—',
-                'amount' => $this->purchaseAmount($movement),
+            ->map(fn (Product $product) => [
+                'date' => $product->created_at->format('d/m/Y'),
+                'reference' => $product->sku,
+                'product' => $product->name,
+                'supplier' => filled($product->supplier) ? $product->supplier : '—',
+                'amount' => $this->productPurchaseTotal($product),
             ]);
     }
 
@@ -163,17 +170,22 @@ class ReportService
             ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to));
     }
 
-    private function purchaseMovementsQuery(?string $dateFrom, ?string $dateTo)
+    private function productPurchaseTotal(Product $product): float
     {
-        [$from, $to] = $this->resolveDateRange($dateFrom, $dateTo);
+        $unitPrice = (float) $product->purchase_price;
+        $purchasedQty = $this->purchasedQuantity($product);
 
-        return StockMovement::query()
-            ->with('product:id,name,supplier,purchase_price')
-            ->whereIn('type', [StockMovementType::Entree, StockMovementType::Inventaire])
-            ->when($from, fn ($q) => $q->whereDate('created_at', '>=', $from))
-            ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to))
-            ->orderByDesc('created_at')
-            ->orderByDesc('id');
+        return round($unitPrice * $purchasedQty, 2);
+    }
+
+    private function purchasedQuantity(Product $product): int
+    {
+        $outgoing = (int) StockMovement::query()
+            ->where('product_id', $product->id)
+            ->where('type', StockMovementType::Sortie)
+            ->sum('quantity');
+
+        return max(0, (int) $product->quantity + $outgoing);
     }
 
     private function chargesQuery(?string $dateFrom, ?string $dateTo)
@@ -183,22 +195,6 @@ class ReportService
         return Expense::query()
             ->when($from, fn ($q) => $q->whereDate('expense_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('expense_date', '<=', $to));
-    }
-
-    private function purchaseAmount(StockMovement $movement): float
-    {
-        $unitPrice = (float) ($movement->product?->purchase_price ?? 0);
-
-        return round($unitPrice * (int) $movement->quantity, 2);
-    }
-
-    private function purchaseReference(StockMovement $movement): string
-    {
-        if (filled($movement->reference)) {
-            return $movement->reference;
-        }
-
-        return 'ACH-'.str_pad((string) $movement->id, 5, '0', STR_PAD_LEFT);
     }
 
     private function parseDate(?string $value): ?string

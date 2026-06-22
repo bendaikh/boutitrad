@@ -56,11 +56,12 @@ class ReportController extends Controller
             'purchases' => [
                 'section' => $section,
                 'title' => 'Achats',
-                'headers' => ['Date', 'Réf Bn°', 'Fournisseur', 'Montant'],
-                'alignments' => ['left', 'left', 'left', 'right'],
+                'headers' => ['Date', 'Réf produit', 'Désignation', 'Fournisseur', 'Montant'],
+                'alignments' => ['left', 'left', 'left', 'left', 'right'],
                 'rows' => $this->reports->purchases()->map(fn (array $row) => [
                     $row['date'],
                     $row['reference'],
+                    $row['product'],
                     $row['supplier'],
                     $money($row['amount']),
                 ])->all(),

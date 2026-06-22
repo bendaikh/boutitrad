@@ -27,11 +27,12 @@
         <div class="flex-1 min-h-0 overflow-y-auto space-y-5 overscroll-y-contain pr-1">
             <div class="admin-card p-5">
                 @include('reports.partials.table-toolbar', ['title' => 'Achats', 'section' => 'purchases'])
-                <x-admin.data-table compact min-width="720px">
+                <x-admin.data-table compact min-width="900px">
                     <thead>
                         <tr>
                             <th class="text-left">Date</th>
-                            <th class="text-left">Réf Bn°</th>
+                            <th class="text-left">Réf produit</th>
+                            <th class="text-left">Désignation</th>
                             <th class="text-left">Fournisseur</th>
                             <th class="text-right">Montant</th>
                         </tr>
@@ -41,12 +42,13 @@
                             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                 <td class="admin-table-cell whitespace-nowrap">{{ $row['date'] }}</td>
                                 <td class="admin-table-cell font-mono text-xs">{{ $row['reference'] }}</td>
+                                <td class="admin-table-cell font-medium">{{ $row['product'] }}</td>
                                 <td class="admin-table-cell">{{ $row['supplier'] }}</td>
                                 <td class="admin-table-cell text-right tabular-nums font-medium">{{ number_format($row['amount'], 2, ',', ' ') }} DH</td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="px-5 py-8 text-center text-slate-500 dark:text-slate-400">Aucun achat enregistré</td>
+                                <td colspan="5" class="px-5 py-8 text-center text-slate-500 dark:text-slate-400">Aucun produit enregistré</td>
                             </tr>
                         @endforelse
                     </tbody>
