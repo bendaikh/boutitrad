@@ -43,7 +43,6 @@ class ProductController extends Controller
             'brands' => Brand::where('is_active', true)->orderBy('name')->get(),
             'editingProduct' => $editingProduct,
             'formActive' => $formActive,
-            'previewSku' => Product::generateSku(),
             'citiesData' => $this->citiesData(),
             'initialCityId' => $initialCityId,
             'initialCityName' => $initialCityName,
@@ -69,7 +68,7 @@ class ProductController extends Controller
             'category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
             'name' => 'required|string|max:255',
-            'sku' => 'nullable|string|max:100|unique:products,sku',
+            'sku' => 'required|string|max:100|unique:products,sku',
             'barcode' => 'nullable|string|max:255',
             'supplier' => 'nullable|string|max:255',
             'city_id' => 'nullable|exists:cities,id',
@@ -94,8 +93,6 @@ class ProductController extends Controller
         }
 
         unset($validated['product_image'], $validated['city_id']);
-
-        $validated['sku'] = Product::generateSku();
 
         Product::create($validated);
         session()->forget(self::PRODUCT_DRAFT_IMAGE_KEY);
@@ -135,7 +132,7 @@ class ProductController extends Controller
             'category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
             'name' => 'required|string|max:255',
-            'sku' => 'required|string|max:100|unique:products,sku,'.$product->id.'|regex:/^PR\d{5}$/',
+            'sku' => 'required|string|max:100|unique:products,sku,'.$product->id,
             'barcode' => 'nullable|string|max:255',
             'supplier' => 'nullable|string|max:255',
             'city_id' => 'nullable|exists:cities,id',
