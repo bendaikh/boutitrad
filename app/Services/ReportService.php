@@ -7,6 +7,7 @@ use App\Enums\OrderStatus;
 use App\Enums\StockMovementType;
 use App\Models\Expense;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\StockMovement;
 use Illuminate\Support\Collection;
@@ -63,12 +64,12 @@ class ReportService
     }
 
     /**
-     * @return Collection<int, array{date: string, reference: string, client: string, commercial: string, amount: float}>
+     * @return Collection<int, array{date: string, reference: string, client: string, commercial: string, amount: float, profit: float}>
      */
     public function sales(?string $dateFrom = null, ?string $dateTo = null): Collection
     {
         return $this->salesQuery($dateFrom, $dateTo)
-            ->with(['client:id,name', 'commercial:id,name'])
+            ->with(['client:id,name', 'commercial:id,name', 'items.product:id,purchase_price'])
             ->orderByDesc('created_at')
             ->get()
             ->map(fn (Order $order) => [
@@ -77,7 +78,22 @@ class ReportService
                 'client' => $order->client?->name ?? '—',
                 'commercial' => $order->commercial?->name ?? '—',
                 'amount' => round((float) $order->total, 2),
+                'profit' => $this->orderProfit($order),
             ]);
+    }
+
+    /**
+     * Bénéfice = prix de vente - coût d'achat, par produit de la commande.
+     */
+    private function orderProfit(Order $order): float
+    {
+        $profit = $order->items->sum(function (OrderItem $item) {
+            $purchasePrice = (float) ($item->product?->purchase_price ?? 0);
+
+            return ((float) $item->unit_price - $purchasePrice) * (int) $item->quantity;
+        });
+
+        return round((float) $profit, 2);
     }
 
     /**

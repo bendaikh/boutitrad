@@ -55,8 +55,14 @@
                 </x-admin.data-table>
             </div>
 
-            <div class="admin-card p-5">
-                @include('reports.partials.table-toolbar', ['title' => 'Ventes', 'section' => 'sales'])
+            <div id="ventes" class="admin-card p-5 scroll-mt-4">
+                @include('reports.partials.table-toolbar', [
+                    'title' => 'Ventes',
+                    'section' => 'sales',
+                    'showDateFilter' => true,
+                    'dateFrom' => $salesFrom ?? null,
+                    'dateTo' => $salesTo ?? null,
+                ])
                 <x-admin.data-table compact min-width="900px">
                     <thead>
                         <tr>
@@ -65,6 +71,7 @@
                             <th class="text-left">Client</th>
                             <th class="text-left">Commercial</th>
                             <th class="text-right">Montant</th>
+                            <th class="text-right">Bénéfice</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y">
@@ -75,13 +82,23 @@
                                 <td class="admin-table-cell font-medium">{{ $row['client'] }}</td>
                                 <td class="admin-table-cell">{{ $row['commercial'] }}</td>
                                 <td class="admin-table-cell text-right tabular-nums font-medium">{{ number_format($row['amount'], 2, ',', ' ') }} DH</td>
+                                <td class="admin-table-cell text-right tabular-nums font-semibold {{ $row['profit'] >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">{{ number_format($row['profit'], 2, ',', ' ') }} DH</td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-5 py-8 text-center text-slate-500 dark:text-slate-400">Aucune vente confirmée</td>
+                                <td colspan="6" class="px-5 py-8 text-center text-slate-500 dark:text-slate-400">Aucune vente confirmée</td>
                             </tr>
                         @endforelse
                     </tbody>
+                    @if($sales->isNotEmpty())
+                        <tfoot>
+                            <tr class="border-t-2 border-slate-200 dark:border-slate-700 font-semibold bg-slate-50 dark:bg-slate-800/40">
+                                <td class="admin-table-cell text-right" colspan="4">Totaux</td>
+                                <td class="admin-table-cell text-right tabular-nums">{{ number_format($salesAmountTotal ?? 0, 2, ',', ' ') }} DH</td>
+                                <td class="admin-table-cell text-right tabular-nums {{ ($salesProfitTotal ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">{{ number_format($salesProfitTotal ?? 0, 2, ',', ' ') }} DH</td>
+                            </tr>
+                        </tfoot>
+                    @endif
                 </x-admin.data-table>
             </div>
 

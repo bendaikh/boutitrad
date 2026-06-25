@@ -237,7 +237,7 @@
                     <x-slot:footer>{{ $payrolls->links() }}</x-slot:footer>
                 @endif
                 <colgroup>
-                    <col style="width: {{ $isCommercialReader ? '10%' : '9%' }}">
+                    <col style="width: {{ $isCommercialReader ? '14%' : '12%' }}">
                     <col style="width: {{ $isCommercialReader ? '13%' : '11%' }}">
                     <col style="width: {{ $isCommercialReader ? '13%' : '11%' }}">
                     @unless($isCommercialReader)
@@ -263,9 +263,26 @@
                     </tr>
                     <tr class="admin-th-filter-row bg-slate-600 dark:bg-slate-800">
                         <th>
-                            <x-sales.payroll-th-filter field="pf_date" :filters="$payrollFilters" class="admin-th-filter--medium">
-                                <input type="date" name="pf_date" value="{{ request('pf_date') }}" onchange="this.form.submit()" aria-label="Filtrer par date">
-                            </x-sales.payroll-th-filter>
+                            <form method="GET" class="admin-th-filter admin-th-filter--daterange relative">
+                                @foreach($payrollFilters as $name => $value)
+                                    @if(! in_array($name, ['pf_date_from', 'pf_date_to'], true) && $value !== null && $value !== '')
+                                        <input type="hidden" name="{{ $name }}" value="{{ $value }}">
+                                    @endif
+                                @endforeach
+                                @if(request('selected'))
+                                    <input type="hidden" name="selected" value="{{ request('selected') }}">
+                                @endif
+                                <div class="flex flex-col gap-1">
+                                    <label class="flex items-center gap-1">
+                                        <span class="text-[9px] font-semibold uppercase text-slate-300 w-3 shrink-0 text-left leading-none">De</span>
+                                        <input type="date" name="pf_date_from" value="{{ request('pf_date_from') }}" onchange="this.form.submit()" class="!pr-1" aria-label="Filtrer à partir de la date">
+                                    </label>
+                                    <label class="flex items-center gap-1">
+                                        <span class="text-[9px] font-semibold uppercase text-slate-300 w-3 shrink-0 text-left leading-none">À</span>
+                                        <input type="date" name="pf_date_to" value="{{ request('pf_date_to') }}" onchange="this.form.submit()" class="!pr-1" aria-label="Filtrer jusqu'à la date">
+                                    </label>
+                                </div>
+                            </form>
                         </th>
                         <th>
                             <x-sales.payroll-th-filter field="pf_reference" :filters="$payrollFilters" class="admin-th-filter--ref">

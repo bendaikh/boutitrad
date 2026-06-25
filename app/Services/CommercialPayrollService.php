@@ -51,7 +51,8 @@ class CommercialPayrollService
     public static function filterKeys(): array
     {
         return [
-            'pf_date',
+            'pf_date_from',
+            'pf_date_to',
             'pf_reference',
             'pf_pay_month',
             'pf_commercial_id',
@@ -96,8 +97,17 @@ class CommercialPayrollService
             ->with('commercial:id,name')
             ->when($user->isCommercial(), fn ($q) => $q->where('commercial_id', $user->id));
 
-        if ($request->filled('pf_date')) {
-            $query->whereDate('payment_date', $request->input('pf_date'));
+        [$dateFrom, $dateTo] = $this->resolveDateRange(
+            $request->input('pf_date_from'),
+            $request->input('pf_date_to'),
+        );
+
+        if ($dateFrom !== null) {
+            $query->whereDate('payment_date', '>=', $dateFrom);
+        }
+
+        if ($dateTo !== null) {
+            $query->whereDate('payment_date', '<=', $dateTo);
         }
 
         if ($request->filled('pf_reference')) {
@@ -138,6 +148,34 @@ class CommercialPayrollService
     private function parseAmount(mixed $value): float
     {
         return (float) str_replace(',', '.', preg_replace('/[^\d,.-]/', '', (string) $value));
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function resolveDateRange(mixed $from, mixed $to): array
+    {
+        $from = $this->parseDate($from);
+        $to = $this->parseDate($to);
+
+        if ($from !== null && $to !== null && $from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+
+        return [$from, $to];
+    }
+
+    private function parseDate(mixed $value): ?string
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::createFromFormat('Y-m-d', (string) $value)->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function findForUser(int $id, User $user): CommercialPayroll

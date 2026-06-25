@@ -280,6 +280,10 @@
         @apply w-[5.75rem];
     }
 
+    .admin-th-filter--daterange {
+        @apply w-full max-w-[8.5rem];
+    }
+
     .admin-th-filter--ref {
         @apply w-[7rem];
     }
@@ -388,6 +392,10 @@
 
     .payroll-table .admin-th-filter--medium {
         @apply w-[5.75rem];
+    }
+
+    .payroll-table .admin-th-filter--daterange {
+        @apply w-full max-w-[8.5rem];
     }
 
     .payroll-table .admin-th-filter--ref {
