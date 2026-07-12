@@ -106,20 +106,26 @@ class ReportService
      *     status: string,
      * }>
      */
-    public function stockMovementsSummary(): Collection
+    public function stockMovementsSummary(?string $dateFrom = null, ?string $dateTo = null): Collection
     {
+        [$from, $to] = $this->resolveDateRange($dateFrom, $dateTo);
+
         $incomingTypes = [StockMovementType::Entree->value, StockMovementType::Inventaire->value];
         $outgoingTypes = [StockMovementType::Sortie->value];
 
         $incoming = StockMovement::query()
             ->selectRaw('product_id, COALESCE(SUM(quantity), 0) as total_in')
             ->whereIn('type', $incomingTypes)
+            ->when($from, fn ($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to))
             ->groupBy('product_id')
             ->pluck('total_in', 'product_id');
 
         $outgoing = StockMovement::query()
             ->selectRaw('product_id, COALESCE(SUM(quantity), 0) as total_out')
             ->whereIn('type', $outgoingTypes)
+            ->when($from, fn ($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to))
             ->groupBy('product_id')
             ->pluck('total_out', 'product_id');
 
@@ -134,7 +140,10 @@ class ReportService
                 'qty_out' => (int) ($outgoing[$product->id] ?? 0),
                 'stock' => (int) $product->quantity,
                 'status' => $product->stockStatusLabel(),
-            ]);
+            ])
+            ->when($from || $to, fn (Collection $rows) => $rows->filter(
+                fn (array $row) => $row['qty_in'] > 0 || $row['qty_out'] > 0
+            )->values());
     }
 
     /**

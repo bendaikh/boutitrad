@@ -6,56 +6,55 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Connexion — BELDI-MALAKI</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|amiri:400,700|cormorant-garamond:400,600,700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|amiri:400,700|scheherazade-new:400,700|cormorant-garamond:400,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="font-sans antialiased">
     <div class="min-h-screen flex">
         {{-- Brand panel --}}
-        <div class="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden bg-[#00332B]">
-            <div class="absolute inset-0 opacity-30">
-                <div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-brand-500 blur-3xl"></div>
-                <div class="absolute bottom-0 right-0 w-80 h-80 rounded-full bg-violet-600 blur-3xl"></div>
-                <div class="absolute top-1/2 left-1/3 w-64 h-64 rounded-full bg-blue-500 blur-3xl"></div>
-            </div>
+        <div class="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden admin-sidebar">
+            <div class="admin-sidebar-pattern" aria-hidden="true"></div>
 
             <div class="relative z-10 flex flex-col justify-between p-12 xl:p-16 w-full text-white">
                 <div>
-                    <div class="mb-16">
-                        <x-admin.logo class="h-28 w-auto max-w-xs rounded-xl" />
+                    <div class="mb-10 flex items-start gap-4">
+                        <x-admin.logo class="h-24 w-auto max-w-xs rounded-xl ring-2 ring-gold-400/40 shadow-xl" />
+                        <div class="pt-2">
+                            <x-admin.morocco-flag class="h-8 w-12 rounded shadow-md ring-1 ring-white/20" />
+                            <p class="font-tradition text-[10px] text-gold-300/80 mt-1.5 tracking-widest uppercase">Maroc</p>
+                        </div>
                     </div>
 
-                    <h1 class="text-4xl xl:text-5xl font-bold leading-tight mb-6">
-                        Pilotez votre activité<br>
-                        <span class="text-brand-300">en toute simplicité</span>
+                    <h1 class="font-tradition text-4xl xl:text-5xl font-bold leading-tight mb-4 tracking-wide text-gold-100">
+                        Beldi-Malaki
                     </h1>
-                    <p class="text-lg text-slate-300 max-w-md leading-relaxed">
-                        Commandes, stock, livraisons et finances — une plateforme unique pour toute votre équipe commerciale.
+                    <p class="font-tradition text-lg text-gold-200/90 max-w-md leading-relaxed">
+                        L'art du beldi — gestion des habits traditionnels, du stock aux ventes.
                     </p>
                 </div>
 
                 <div class="space-y-4">
-                    <div class="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                        <div class="w-10 h-10 rounded-lg bg-brand-500/30 flex items-center justify-center shrink-0">
-                            <svg class="w-5 h-5 text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    <div class="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-gold-400/20 backdrop-blur-sm">
+                        <div class="w-10 h-10 rounded-lg bg-gold-500/20 flex items-center justify-center shrink-0">
+                            <svg class="w-5 h-5 text-gold-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                         </div>
                         <div>
-                            <div class="font-tradition font-bold text-base text-white tracking-wide">BELDI-MALAKI</div>
-                            <div class="font-tradition text-xs text-brand-200 italic">Vente des habits traditionnels — KPIs & suivi en temps réel</div>
+                            <div class="font-tradition font-bold text-base text-gold-100 tracking-wide">BELDI-MALAKI</div>
+                            <div class="font-tradition text-xs text-gold-300/80 italic">Vente des habits traditionnels — KPIs & suivi en temps réel</div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                        <div class="w-10 h-10 rounded-lg bg-emerald-500/30 flex items-center justify-center shrink-0">
-                            <svg class="w-5 h-5 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    <div class="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-gold-400/20 backdrop-blur-sm">
+                        <div class="w-10 h-10 rounded-lg bg-morocco-red/30 flex items-center justify-center shrink-0">
+                            <x-admin.morocco-flag class="h-5 w-8" />
                         </div>
                         <div>
-                            <div class="font-semibold text-sm">Accès sécurisé multi-rôles</div>
-                            <div class="text-xs text-slate-400">Admin, commercial, livreur, stock</div>
+                            <div class="font-tradition font-semibold text-sm text-gold-100">Fièrement marocain</div>
+                            <div class="font-tradition text-xs text-gold-300/70">Admin, commercial, livreur, stock</div>
                         </div>
                     </div>
                 </div>
 
-                <p class="text-xs text-slate-500 mt-8">&copy; {{ date('Y') }} BELDI-MALAKI. Tous droits réservés.</p>
+                <p class="text-xs text-gold-300/50 mt-8 font-tradition">&copy; {{ date('Y') }} BELDI-MALAKI · بلدي ملكي</p>
             </div>
         </div>
 
@@ -63,14 +62,15 @@
         <div class="flex-1 flex items-center justify-center p-6 sm:p-10 bg-surface-muted">
             <div class="w-full max-w-md">
                 {{-- Mobile logo --}}
-                <div class="lg:hidden flex justify-center mb-8">
+                <div class="lg:hidden flex flex-col items-center mb-8 gap-2">
                     <x-admin.logo class="h-20 w-auto rounded-xl" />
+                    <x-admin.morocco-flag class="h-4 w-6 rounded shadow-sm" />
                 </div>
 
-                <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8 sm:p-10">
-                    <div class="mb-8">
-                        <h2 class="text-2xl font-bold text-slate-900">Bon retour</h2>
-                        <p class="text-slate-500 mt-1 text-sm">Connectez-vous pour accéder à votre espace</p>
+                <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-gold-200/40 p-8 sm:p-10">
+                    <div class="mb-8 text-center sm:text-left">
+                        <h2 class="font-tradition text-2xl font-bold text-royal">Bon retour</h2>
+                        <p class="text-slate-500 mt-1 text-sm font-tradition">Connectez-vous à votre espace Beldi-Malaki</p>
                     </div>
 
                     @if (session('status'))
@@ -128,9 +128,11 @@
                             @endif
                         </div>
 
-                        <button type="submit"
-                            class="w-full py-3.5 px-4 bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white font-semibold rounded-xl shadow-lg shadow-brand-500/30 transition-all duration-200 hover:shadow-brand-500/40 hover:-translate-y-0.5 active:translate-y-0 text-sm">
-                            Se connecter
+                        <button type="submit" class="btn-login-submit">
+                            <span>Se connecter</span>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                            </svg>
                         </button>
                     </form>
                 </div>

@@ -14,7 +14,7 @@
         })();
     </script>
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|amiri:400,700|scheherazade-new:400,700|cormorant-garamond:400,600,700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|amiri:400,700|scheherazade-new:400,700|cormorant-garamond:400,600,700|lateef:400,700|aref-ruqaa:400,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 @php
@@ -41,22 +41,30 @@
     <div class="h-screen overflow-hidden">
         {{-- Sidebar --}}
         <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
-               class="fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 transform transition-transform duration-200 ease-in-out lg:translate-x-0 flex flex-col shadow-sm h-screen">
-            <div class="px-6 py-6 border-b border-slate-100 dark:border-slate-700 text-center shrink-0">
-                <x-admin.logo class="h-16 w-16 mx-auto rounded-full object-cover" />
-                <div style="font-family: 'Scheherazade New', 'Amiri', serif; font-size: 1.25rem; font-weight: 700; letter-spacing: 0.1em;" class="mt-3 admin-brand-title">Beldi-Malaki</div>
-                <div style="font-family: 'Scheherazade New', 'Amiri', serif; text-decoration: underline; text-underline-offset: 3px; font-weight: 700;" class="text-xs mt-1 admin-brand-title">Direction générale</div>
+               class="admin-sidebar fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ease-in-out lg:translate-x-0">
+            <div class="admin-sidebar-pattern" aria-hidden="true"></div>
+
+            <div class="admin-sidebar-header">
+                <div class="admin-sidebar-logo-wrap">
+                    <x-admin.logo class="h-16 w-16 mx-auto rounded-full object-cover ring-2 ring-gold-400/50 shadow-lg" />
+                    <div class="admin-sidebar-flag">
+                        <x-admin.morocco-flag class="h-4 w-6" />
+                    </div>
+                </div>
+                <div class="admin-sidebar-brand">Beldi-Malaki</div>
+                <div class="admin-sidebar-tagline">Habits traditionnels · بلدي ملكي</div>
+                <div class="admin-sidebar-ornament" aria-hidden="true"></div>
             </div>
 
             <nav
-                class="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-1"
+                class="admin-sidebar-nav"
                 x-init="$nextTick(() => { const scroll = sessionStorage.getItem('adminNavScroll'); if (scroll) $el.scrollTop = parseInt(scroll); })"
                 @scroll.passive="sessionStorage.setItem('adminNavScroll', $el.scrollTop)"
             >
                 @php $user = auth()->user(); @endphp
 
                 @if($user->hasPermission('dashboard.access'))
-                <x-admin.nav-link route="dashboard" icon="chart">BELDI-MALAKI</x-admin.nav-link>
+                <x-admin.nav-link route="dashboard" icon="chart" :featured="true">BELDI-MALAKI</x-admin.nav-link>
                 @endif
 
                 @if($user->canAccessClientsModule())
@@ -162,6 +170,55 @@
                     </x-admin.nav-group>
                 @endif
             </nav>
+
+            <div class="admin-sidebar-profile">
+                <a href="{{ route('profile.edit') }}" class="admin-sidebar-profile-link" title="Mon profil">
+                    <img
+                        src="{{ asset('images/gerant-profile.png') }}"
+                        alt="Photo de profil Gérant"
+                        class="admin-sidebar-profile-photo"
+                    >
+                    <div class="min-w-0 flex-1">
+                        <p class="admin-sidebar-profile-name">Gérant</p>
+                        <p class="admin-sidebar-profile-role">Direction générale</p>
+                    </div>
+                    <svg class="w-4 h-4 shrink-0 text-gold-200/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </a>
+            </div>
+
+            <div class="admin-sidebar-actions" x-data="themeToggle()">
+                <button
+                    type="button"
+                    @click="toggle()"
+                    class="admin-sidebar-action-btn"
+                    :title="isDark() ? 'Mode clair' : 'Mode sombre'"
+                >
+                    <svg x-show="!isDark()" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                    <svg x-show="isDark()" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <span class="admin-sidebar-action-label" x-text="isDark() ? 'Clair' : 'Sombre'"></span>
+                </button>
+                <a href="{{ route('notifications.index') }}" class="admin-sidebar-action-btn relative" title="Notifications">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                    <span class="admin-sidebar-action-label">Alertes</span>
+                    @if($unreadCount = auth()->user()->unreadNotifications->count())
+                        <span class="admin-sidebar-action-badge">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
+                    @endif
+                </a>
+                <form method="POST" action="{{ route('logout') }}" class="flex-1">
+                    @csrf
+                    <button type="submit" class="admin-sidebar-action-btn w-full" title="Déconnexion">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                        <span class="admin-sidebar-action-label">Sortir</span>
+                    </button>
+                </form>
+            </div>
+
+            <div class="admin-sidebar-footer">
+                <x-admin.morocco-flag class="h-3.5 w-5" />
+                <span class="admin-sidebar-footer-text">Fièrement marocain</span>
+            </div>
         </aside>
 
         {{-- Overlay --}}
@@ -177,39 +234,25 @@
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                         </button>
                         @if(($title ?? '') === 'BELDI-MALAKI')
+                            <div class="admin-header-flag hidden sm:block">
+                                <x-admin.morocco-flag class="h-5 w-8" />
+                            </div>
                             <div>
-                                <h1 style="font-family: 'Scheherazade New', 'Amiri', serif; font-size: 1.75rem; font-weight: 700; letter-spacing: 0.14em;" class="leading-tight admin-brand-title">BELDI-MALAKI</h1>
-                                <p style="font-family: 'Scheherazade New', 'Amiri', serif; text-decoration: underline; text-underline-offset: 3px;" class="text-sm mt-1 max-w-xl leading-snug admin-brand-title">Bienvenus sur votre plateforme Beldi-Malaki, l'univers du BELDI !</p>
+                                <h1 class="beldi-malaki-nav-title">BELDI-MALAKI</h1>
+                                <p class="beldi-malaki-nav-welcome">Bienvenue — l'univers des habits traditionnels marocains</p>
                             </div>
                         @else
-                            <h1 class="text-lg font-bold text-brand-800 dark:text-brand-300">{{ $title ?? 'Dashboard' }}</h1>
+                            <div class="flex items-center gap-2.5">
+                                <div class="admin-header-flag hidden sm:block">
+                                    <x-admin.morocco-flag class="h-4 w-7" />
+                                </div>
+                                <h1 class="text-lg font-tradition font-bold text-royal dark:text-gold-200 tracking-wide">{{ $title ?? 'Dashboard' }}</h1>
+                            </div>
                         @endif
                     </div>
-                    <div class="flex items-center gap-2 sm:gap-4" x-data="themeToggle()">
-                        <button
-                            type="button"
-                            @click="toggle()"
-                            class="admin-icon-btn"
-                            :title="isDark() ? 'Mode clair' : 'Mode sombre'"
-                        >
-                            <svg x-show="!isDark()" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
-                            <svg x-show="isDark()" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                        </button>
-                        <a href="{{ route('notifications.index') }}" class="relative admin-icon-btn">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                            @if($unreadCount = auth()->user()->unreadNotifications->count())
-                                <span class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 flex items-center justify-center text-[10px] font-bold text-white bg-red-500 rounded-full">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
-                            @endif
-                        </a>
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <button type="submit" class="admin-icon-btn" title="Déconnexion">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                            </button>
-                        </form>
-                        <a href="{{ route('profile.edit') }}" class="rounded-full hover:ring-2 hover:ring-brand-200 dark:hover:ring-brand-700 transition-shadow" title="Mon profil">
-                            <x-admin.user-avatar :user="$user" />
-                        </a>
+                    <div class="admin-header-arabic hidden sm:block" dir="rtl" lang="ar">
+                        <p class="admin-header-arabic-line hidden md:block">مَرْحَباً بِكُمْ</p>
+                        <p class="admin-header-arabic-brand">بَلَدِي مَلَكِي</p>
                     </div>
                 </div>
             </header>

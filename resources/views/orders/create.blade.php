@@ -261,8 +261,7 @@
                 <div class="sm:col-span-2 admin-order-form-label">Désignation article</div>
                 <div class="sm:col-span-2 admin-order-form-label text-center">Quantité</div>
                 <div class="sm:col-span-2 admin-order-form-label text-right">Prix U</div>
-                <div class="sm:col-span-1 admin-order-form-label text-right">Coût livraison</div>
-                <div class="sm:col-span-2 admin-order-form-label text-right">Sous total</div>
+                <div class="sm:col-span-3 admin-order-form-label text-right">Sous total</div>
                 <div class="sm:col-span-1"></div>
             </div>
             <p x-show="showStock" x-cloak class="hidden sm:block text-[10px] text-slate-500 dark:text-slate-400 mb-2 px-0.5">
@@ -328,24 +327,7 @@
                             class="admin-order-form-input text-right tabular-nums"
                         >
                     </div>
-                    <div class="col-span-6 sm:col-span-1" x-show="index === 0">
-                        <div>
-                            <label for="delivery_cost" class="admin-order-form-label sm:hidden text-right">Coût livraison</label>
-                            <input
-                                type="number"
-                                id="delivery_cost"
-                                name="delivery_cost"
-                                x-model="deliveryCost"
-                                min="0"
-                                step="0.01"
-                                placeholder="0"
-                                class="admin-order-form-input text-right tabular-nums"
-                            >
-                            @error('delivery_cost')<p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>@enderror
-                        </div>
-                    </div>
-                    <div class="hidden sm:block sm:col-span-1" x-show="index !== 0" aria-hidden="true"></div>
-                    <div class="col-span-10 sm:col-span-2">
+                    <div class="col-span-10 sm:col-span-3">
                         <label class="admin-order-form-label sm:hidden text-right">Sous total</label>
                         <input
                             type="text"
@@ -409,12 +391,6 @@
             </template>
 
             <div class="flex flex-col items-end gap-1 pt-2 border-t border-slate-100 dark:border-slate-700 mt-2 text-sm text-slate-700 dark:text-slate-200">
-                <div class="tabular-nums">
-                    Sous-total articles : <span x-text="formatMoney(itemsSubtotal())"></span>
-                </div>
-                <div class="tabular-nums">
-                    Coût livraison : <span x-text="formatMoney(deliveryCostAmount())"></span>
-                </div>
                 <div class="font-semibold text-slate-800 dark:text-slate-100 tabular-nums">
                     Total : <span x-text="formatMoney(orderTotal())"></span>
                 </div>
@@ -505,7 +481,6 @@
             cityDropdownStyle: '',
             commercialId: @json(old('commercial_id', $order?->commercial_id ?? '')),
             paymentMode: @json(old('payment_mode', $order?->payment_mode?->value ?? '')),
-            deliveryCost: @json(old('delivery_cost', $order?->delivery_cost ?? $defaultDeliveryCost)),
             showStock: true,
             items: initialItems.length ? initialItems.map(item => buildItem(item)) : [buildItem()],
             itemImagePreview(item) {
@@ -569,9 +544,7 @@
             init() {
                 this.syncCityQueryFromId();
                 if (this.clientId) {
-                    this.onClientChange(false);
-                } else if (this.cityId) {
-                    this.onCityChange(false);
+                    this.onClientChange();
                 }
                 this.bindCityDropdownListeners();
             },
@@ -616,13 +589,11 @@
                 this.cityId = String(city.id);
                 this.cityQuery = city.name;
                 this.closeCityDropdown();
-                this.onCityChange();
             },
             onCityQueryInput() {
                 const exact = cities.find(c => this.normalizeCitySearch(c.name) === this.normalizeCitySearch(this.cityQuery));
                 if (exact) {
                     this.cityId = String(exact.id);
-                    this.applyCityDeliveryCost();
                     return;
                 }
                 this.cityId = '';
@@ -645,12 +616,12 @@
                 const client = clients.find(c => String(c.id) === String(this.clientId));
                 this.clientAddress = client?.address || '';
             },
-            onClientChange(updateDeliveryCost = true) {
+            onClientChange() {
                 this.isNewClient = ! this.clientId;
                 this.editClientAddress = false;
 
                 if (this.isNewClient) {
-                    if (updateDeliveryCost && ! oldClientName) {
+                    if (! oldClientName) {
                         this.clientName = '';
                     }
                     this.cityId = '';
@@ -685,20 +656,6 @@
                 }
                 if (client.payment_mode) {
                     this.paymentMode = client.payment_mode;
-                }
-                if (updateDeliveryCost) {
-                    this.applyCityDeliveryCost();
-                }
-            },
-            onCityChange(updateDeliveryCost = true) {
-                if (updateDeliveryCost) {
-                    this.applyCityDeliveryCost();
-                }
-            },
-            applyCityDeliveryCost() {
-                const city = cities.find(c => String(c.id) === String(this.cityId));
-                if (city && city.delivery_cost > 0) {
-                    this.deliveryCost = city.delivery_cost;
                 }
             },
             onProductChange(index) {
@@ -750,11 +707,8 @@
             itemsSubtotal() {
                 return this.items.reduce((sum, item) => sum + this.lineSubtotal(item), 0);
             },
-            deliveryCostAmount() {
-                return Number(this.deliveryCost) || 0;
-            },
             orderTotal() {
-                return this.itemsSubtotal() + this.deliveryCostAmount();
+                return this.itemsSubtotal();
             },
             phoneDigits() {
                 return String(this.clientPhone || '').replace(/\D/g, '');

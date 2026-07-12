@@ -190,7 +190,6 @@ class OrderController extends Controller
             'internal_notes' => 'nullable|string',
             'shipping_remark' => 'nullable|string|max:2000',
             'discount' => 'nullable|numeric|min:0',
-            'delivery_cost' => 'nullable|numeric|min:0',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
@@ -360,7 +359,7 @@ class OrderController extends Controller
             }
 
             $discount = $validated['discount'] ?? 0;
-            $deliveryCost = $validated['delivery_cost'] ?? 0;
+            $deliveryCost = 0;
             $total = max(0, $subtotal + $deliveryCost - $discount);
 
             $order = Order::create([
@@ -471,7 +470,7 @@ class OrderController extends Controller
             }
 
             $discount = $validated['discount'] ?? 0;
-            $deliveryCost = $validated['delivery_cost'] ?? 0;
+            $deliveryCost = 0;
             $total = max(0, $subtotal + $deliveryCost - $discount);
 
             $order->update([

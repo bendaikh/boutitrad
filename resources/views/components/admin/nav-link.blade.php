@@ -1,14 +1,15 @@
-@props(['route', 'icon'])
+@props(['route', 'icon', 'featured' => false])
 
 @php
 $active = request()->routeIs(str_replace('.index', '.*', $route)) || request()->routeIs($route);
-$classes = $active
-    ? 'bg-brand-600 text-white shadow-sm dark:bg-brand-500'
-    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200';
+$classes = 'admin-nav-link';
+if ($featured) {
+    $classes .= ' admin-nav-link--featured';
+}
+$classes .= $active ? ' admin-nav-link--active' : '';
 @endphp
 
-<a href="{{ route($route) }}"
-   class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {{ $classes }}">
+<a href="{{ route($route) }}" class="{{ $classes }}">
     @switch($icon)
         @case('chart')
             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>

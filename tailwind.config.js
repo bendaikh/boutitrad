@@ -16,6 +16,7 @@ export default {
             fontFamily: {
                 sans: ['Inter', ...defaultTheme.fontFamily.sans],
                 tradition: ['Scheherazade New', 'Amiri', 'Cormorant Garamond', ...defaultTheme.fontFamily.serif],
+                arabic: ['Lateef', 'Aref Ruqaa', 'Amiri', 'Scheherazade New', ...defaultTheme.fontFamily.serif],
             },
             colors: {
                 brand: {
@@ -33,6 +34,18 @@ export default {
                 surface: {
                     DEFAULT: '#ffffff',
                     muted: '#f4f6f9',
+                },
+                morocco: {
+                    red: '#C1272D',
+                    green: '#006233',
+                },
+                gold: {
+                    100: '#FBF5E6',
+                    200: '#F0E2B8',
+                    300: '#E5CF8A',
+                    400: '#D4AF37',
+                    500: '#C9A227',
+                    600: '#B8860B',
                 },
                 royal: {
                     DEFAULT: '#00332B',

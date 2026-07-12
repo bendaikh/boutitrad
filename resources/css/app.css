@@ -414,4 +414,295 @@
     .admin-payroll-section-title {
         @apply text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2.5 pb-1 border-b border-slate-200/80 dark:border-slate-700/80;
     }
+
+    /* ── Sidebar traditionnelle Beldi-Malaki ── */
+    .admin-sidebar {
+        @apply relative w-64 flex flex-col h-screen shadow-[4px_0_24px_rgba(0,0,0,0.12)];
+        background: linear-gradient(175deg, #004D40 0%, #00695C 42%, #00796B 100%);
+    }
+
+    .admin-sidebar::before {
+        content: '';
+        @apply pointer-events-none absolute inset-0;
+        background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255, 255, 255, 0.12) 0%, transparent 70%);
+    }
+
+    .admin-sidebar-pattern {
+        @apply pointer-events-none absolute inset-0 opacity-[0.1];
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23F0E2B8' stroke-width='0.8'%3E%3Cpath d='M30 0 L60 30 L30 60 L0 30 Z'/%3E%3Cpath d='M30 10 L50 30 L30 50 L10 30 Z'/%3E%3C/g%3E%3C/svg%3E");
+        background-size: 28px 28px;
+    }
+
+    .admin-sidebar-header {
+        @apply relative z-10 shrink-0 px-5 pt-6 pb-5 text-center border-b border-gold-300/35;
+    }
+
+    .admin-sidebar-logo-wrap {
+        @apply relative inline-block;
+    }
+
+    .admin-sidebar-flag {
+        @apply absolute -bottom-1 -right-2 rounded shadow-md ring-2 ring-gold-400/60 overflow-hidden;
+    }
+
+    .admin-sidebar-brand {
+        @apply font-tradition text-[1.35rem] font-bold tracking-[0.1em] text-gold-100 mt-3 leading-tight;
+        text-shadow: 0 1px 8px rgba(255, 255, 255, 0.15);
+    }
+
+    .admin-sidebar-tagline {
+        @apply font-tradition text-xs text-gold-200 mt-1 tracking-wide;
+    }
+
+    .admin-sidebar-ornament {
+        @apply mt-4 h-px w-full;
+        background: linear-gradient(90deg, transparent, #F0E2B8 20%, #D4AF37 50%, #F0E2B8 80%, transparent);
+        box-shadow: 0 0 8px rgba(212, 175, 55, 0.4);
+    }
+
+    .admin-sidebar-nav {
+        @apply relative z-10 flex-1 overflow-y-auto min-h-0 px-3 py-4 space-y-2;
+    }
+
+    .admin-sidebar-footer {
+        @apply relative z-10 shrink-0 px-4 py-3 border-t border-gold-300/30 flex items-center justify-center gap-2;
+    }
+
+    .admin-sidebar-profile {
+        @apply relative z-10 shrink-0 px-3 py-3 border-t border-gold-300/25;
+    }
+
+    .admin-sidebar-profile-link {
+        @apply flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(240, 226, 184, 0.25);
+    }
+
+    .admin-sidebar-profile-link:hover {
+        background: rgba(255, 255, 255, 0.14);
+        border-color: rgba(240, 226, 184, 0.45);
+        box-shadow: 0 0 16px rgba(212, 175, 55, 0.15);
+    }
+
+    .admin-sidebar-profile-photo {
+        @apply w-11 h-11 rounded-full object-cover shrink-0 ring-2 ring-gold-300/60 shadow-md;
+    }
+
+    .admin-sidebar-profile-name {
+        @apply font-tradition text-[15px] font-bold text-gold-100 tracking-wide truncate;
+    }
+
+    .admin-sidebar-profile-role {
+        @apply font-tradition text-[11px] text-gold-200/80 truncate;
+    }
+
+    .admin-sidebar-footer-text {
+        @apply font-tradition text-[11px] text-gold-200 tracking-wider uppercase;
+    }
+
+    .admin-nav-link {
+        @apply flex items-center gap-3 px-3 py-3 rounded-lg text-[15px] font-semibold transition-all duration-200;
+        @apply text-gold-100 hover:text-white;
+    }
+
+    .admin-nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.14);
+        box-shadow: 0 0 12px rgba(255, 255, 255, 0.06);
+    }
+
+    .admin-nav-link--active {
+        @apply text-white font-bold shadow-lg;
+        background: linear-gradient(90deg, rgba(212, 175, 55, 0.45) 0%, rgba(255, 255, 255, 0.12) 100%);
+        border-left: 3px solid #F0E2B8;
+        padding-left: calc(0.75rem - 3px);
+        box-shadow: 0 0 16px rgba(212, 175, 55, 0.2);
+    }
+
+    .admin-nav-link svg {
+        @apply w-[1.35rem] h-[1.35rem] text-gold-200;
+    }
+
+    .admin-nav-link--active svg {
+        @apply text-gold-100;
+    }
+
+    .admin-nav-link--featured {
+        @apply justify-center font-tradition text-base font-bold tracking-[0.18em] uppercase py-3.5 my-1;
+        background: linear-gradient(135deg, rgba(193, 39, 45, 0.35) 0%, rgba(212, 175, 55, 0.3) 50%, rgba(255, 255, 255, 0.1) 100%);
+        border: 1px solid rgba(240, 226, 184, 0.55);
+        box-shadow: 0 0 20px rgba(212, 175, 55, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+
+    .admin-nav-link--featured:hover {
+        background: linear-gradient(135deg, rgba(193, 39, 45, 0.45) 0%, rgba(212, 175, 55, 0.4) 50%, rgba(255, 255, 255, 0.16) 100%);
+        box-shadow: 0 0 28px rgba(212, 175, 55, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        transform: translateY(-1px);
+    }
+
+    .admin-nav-link--featured.admin-nav-link--active {
+        background: linear-gradient(135deg, rgba(193, 39, 45, 0.55) 0%, rgba(212, 175, 55, 0.5) 45%, rgba(255, 255, 255, 0.18) 100%);
+        border: 1px solid #F0E2B8;
+        border-left: 1px solid #F0E2B8;
+        padding-left: 0.75rem;
+        box-shadow: 0 0 32px rgba(212, 175, 55, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.1);
+    }
+
+    .admin-nav-link--featured svg {
+        @apply hidden;
+    }
+
+    .admin-nav-link--featured::before {
+        content: '✦';
+        @apply text-gold-200 text-xs mr-1;
+    }
+
+    .admin-nav-link--featured::after {
+        content: '✦';
+        @apply text-gold-200 text-xs ml-1;
+    }
+
+    .admin-nav-group-btn {
+        @apply w-full flex items-center justify-between gap-2 px-3 py-3 rounded-lg text-[15px] font-semibold transition-all duration-200;
+        @apply text-gold-100 hover:text-white;
+    }
+
+    .admin-nav-group-btn:hover {
+        background-color: rgba(255, 255, 255, 0.14);
+        box-shadow: 0 0 12px rgba(255, 255, 255, 0.06);
+    }
+
+    .admin-nav-group-btn--active {
+        @apply text-white font-bold;
+        background-color: rgba(255, 255, 255, 0.16);
+        box-shadow: inset 3px 0 0 #F0E2B8, 0 0 12px rgba(255, 255, 255, 0.08);
+    }
+
+    .admin-nav-group-btn svg {
+        @apply w-[1.35rem] h-[1.35rem] text-gold-200;
+    }
+
+    .admin-nav-group-btn--active svg {
+        @apply text-gold-100;
+    }
+
+    .admin-nav-submenu {
+        @apply mt-2 ml-2 pl-3 space-y-1;
+        border-left: 2px solid rgba(240, 226, 184, 0.5);
+    }
+
+    .admin-nav-sublink {
+        @apply flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-tradition font-medium transition-all duration-200;
+        @apply text-gold-100/90 hover:text-white;
+    }
+
+    .admin-nav-sublink:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .admin-nav-sublink--active {
+        @apply text-white font-bold;
+        background: linear-gradient(90deg, rgba(193, 39, 45, 0.3) 0%, rgba(212, 175, 55, 0.28) 100%);
+        border-left: 2px solid #F0E2B8;
+        padding-left: calc(0.75rem - 2px);
+        box-shadow: 0 0 10px rgba(212, 175, 55, 0.15);
+    }
+
+    .admin-nav-sublink svg {
+        @apply w-4 h-4 opacity-90;
+    }
+
+    .admin-nav-sublink--active svg {
+        @apply opacity-100 text-gold-100;
+    }
+
+    .admin-header-flag {
+        @apply shrink-0 rounded shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600 overflow-hidden;
+    }
+
+    .admin-header-arabic {
+        @apply text-right leading-none py-1 pr-1;
+    }
+
+    .admin-header-arabic-line {
+        font-family: 'Lateef', 'Aref Ruqaa', 'Amiri', serif;
+        @apply text-2xl lg:text-3xl font-normal text-royal/80 dark:text-gold-300/90 mb-0.5;
+        text-shadow: 0 2px 12px rgba(0, 51, 43, 0.12);
+    }
+
+    .admin-header-arabic-brand {
+        font-family: 'Aref Ruqaa', 'Lateef', 'Amiri', serif;
+        @apply text-3xl sm:text-4xl font-bold;
+        background: linear-gradient(135deg, #00332B 0%, #C9A227 45%, #C1272D 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: drop-shadow(0 2px 8px rgba(201, 162, 39, 0.25));
+        letter-spacing: 0.02em;
+        line-height: 1.1;
+    }
+
+    @media (min-width: 768px) {
+        .admin-header-arabic-brand {
+            font-size: 3.25rem;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .admin-header-arabic-brand {
+            font-size: 3.5rem;
+        }
+    }
+
+    .dark .admin-header-arabic-brand {
+        background: linear-gradient(135deg, #F0E2B8 0%, #D4AF37 40%, #E5CF8A 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .admin-sidebar-actions {
+        @apply relative z-10 shrink-0 px-3 py-2.5 border-t border-gold-300/25 flex items-stretch gap-2;
+    }
+
+    .admin-sidebar-action-btn {
+        @apply flex-1 flex flex-col items-center justify-center gap-1 px-2 py-2.5 rounded-xl transition-all duration-200;
+        @apply text-gold-100/90 hover:text-white;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(240, 226, 184, 0.2);
+    }
+
+    .admin-sidebar-action-btn:hover {
+        background: rgba(255, 255, 255, 0.14);
+        border-color: rgba(240, 226, 184, 0.4);
+        box-shadow: 0 0 14px rgba(212, 175, 55, 0.12);
+    }
+
+    .admin-sidebar-action-label {
+        @apply font-tradition text-[10px] tracking-wide;
+    }
+
+    .admin-sidebar-action-badge {
+        @apply absolute top-1 right-2 min-w-[1.125rem] h-[1.125rem] px-1 flex items-center justify-center text-[9px] font-bold text-white bg-morocco-red rounded-full ring-2 ring-[#002820];
+    }
+
+    .btn-login-submit {
+        @apply w-full py-4 px-5 font-tradition font-bold text-base rounded-xl transition-all duration-300;
+        @apply flex items-center justify-center gap-2.5;
+        color: #FBF5E6;
+        background: linear-gradient(135deg, #C1272D 0%, #00332B 45%, #00695C 100%);
+        border: 2px solid rgba(212, 175, 55, 0.6);
+        box-shadow: 0 4px 20px rgba(0, 51, 43, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+        letter-spacing: 0.06em;
+    }
+
+    .btn-login-submit:hover {
+        background: linear-gradient(135deg, #D42F36 0%, #004D40 45%, #00796B 100%);
+        border-color: #F0E2B8;
+        box-shadow: 0 8px 28px rgba(193, 39, 45, 0.3), 0 0 24px rgba(212, 175, 55, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .btn-login-submit:active {
+        transform: translateY(0);
+    }
 }

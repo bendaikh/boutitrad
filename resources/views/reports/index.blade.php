@@ -25,8 +25,16 @@
         </div>
 
         <div class="flex-1 min-h-0 overflow-y-auto space-y-5 overscroll-y-contain pr-1">
-            <div class="admin-card p-5">
-                @include('reports.partials.table-toolbar', ['title' => 'Achats', 'section' => 'purchases'])
+            <div id="achats" class="admin-card p-5 scroll-mt-4">
+                @include('reports.partials.table-toolbar', [
+                    'title' => 'Achats',
+                    'section' => 'purchases',
+                    'showDateFilter' => true,
+                    'dateFrom' => $purchasesFrom ?? null,
+                    'dateTo' => $purchasesTo ?? null,
+                    'anchor' => 'achats',
+                    'preserveFilters' => $reportFilters ?? [],
+                ])
                 <x-admin.data-table compact min-width="900px">
                     <thead>
                         <tr>
@@ -62,6 +70,8 @@
                     'showDateFilter' => true,
                     'dateFrom' => $salesFrom ?? null,
                     'dateTo' => $salesTo ?? null,
+                    'anchor' => 'ventes',
+                    'preserveFilters' => $reportFilters ?? [],
                 ])
                 <x-admin.data-table compact min-width="900px">
                     <thead>
@@ -102,8 +112,16 @@
                 </x-admin.data-table>
             </div>
 
-            <div class="admin-card p-5">
-                @include('reports.partials.table-toolbar', ['title' => 'Mouvement Stock', 'section' => 'stock'])
+            <div id="stock" class="admin-card p-5 scroll-mt-4">
+                @include('reports.partials.table-toolbar', [
+                    'title' => 'Mouvement Stock',
+                    'section' => 'stock',
+                    'showDateFilter' => true,
+                    'dateFrom' => $stockFrom ?? null,
+                    'dateTo' => $stockTo ?? null,
+                    'anchor' => 'stock',
+                    'preserveFilters' => $reportFilters ?? [],
+                ])
                 <x-admin.data-table compact min-width="900px">
                     <thead>
                         <tr>
@@ -138,15 +156,23 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-5 py-8 text-center text-slate-500 dark:text-slate-400">Aucun produit en stock</td>
+                                <td colspan="6" class="px-5 py-8 text-center text-slate-500 dark:text-slate-400">Aucun mouvement de stock sur la période</td>
                             </tr>
                         @endforelse
                     </tbody>
                 </x-admin.data-table>
             </div>
 
-            <div class="admin-card p-5">
-                @include('reports.partials.table-toolbar', ['title' => 'Charges', 'section' => 'charges'])
+            <div id="charges" class="admin-card p-5 scroll-mt-4">
+                @include('reports.partials.table-toolbar', [
+                    'title' => 'Charges',
+                    'section' => 'charges',
+                    'showDateFilter' => true,
+                    'dateFrom' => $chargesFrom ?? null,
+                    'dateTo' => $chargesTo ?? null,
+                    'anchor' => 'charges',
+                    'preserveFilters' => $reportFilters ?? [],
+                ])
                 <x-admin.data-table compact min-width="760px">
                     <thead>
                         <tr>
