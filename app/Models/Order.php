@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMode;
+use App\Enums\RegulationStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -191,6 +192,35 @@ class Order extends Model
     public function paymentStatusLabel(): string
     {
         return $this->paymentStatus() === 'paid' ? 'Payé' : 'Impayé';
+    }
+
+    /**
+     * Quand une commande est livrée, le règlement doit être considéré comme payé.
+     */
+    public function markAsPaidOnDelivery(?int $userId = null): void
+    {
+        $total = $this->orderAmount();
+        $remaining = max(0, round($total - $this->paidAmount(), 2));
+
+        if ($remaining > 0) {
+            $this->update(['amount_paid' => $total]);
+
+            OrderPayment::create([
+                'order_id' => $this->id,
+                'payment_date' => now()->toDateString(),
+                'payment_mode' => PaymentMode::Comptant,
+                'amount' => $remaining,
+                'regulation_status' => RegulationStatus::Paye,
+                'created_by' => $userId,
+            ]);
+        }
+
+        $this->payments()
+            ->where(function ($query) {
+                $query->whereNull('regulation_status')
+                    ->orWhere('regulation_status', '!=', RegulationStatus::Paye->value);
+            })
+            ->update(['regulation_status' => RegulationStatus::Paye->value]);
     }
 
     public function isEditableByCommercial(): bool

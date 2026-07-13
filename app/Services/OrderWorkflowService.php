@@ -187,6 +187,9 @@ class OrderWorkflowService
                     ]);
                 }
 
+                $order->refresh();
+                $order->markAsPaidOnDelivery($user->id);
+
                 OrderStatusHistory::create([
                     'order_id' => $order->id,
                     'status' => OrderStatus::Livree->value,

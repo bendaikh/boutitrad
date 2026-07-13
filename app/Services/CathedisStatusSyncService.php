@@ -207,6 +207,11 @@ class CathedisStatusSyncService
         $order->update($updates);
         $order->refresh();
 
+        if ($targetStatus === OrderStatus::Livree) {
+            $order->markAsPaidOnDelivery();
+            $order->refresh();
+        }
+
         OrderStatusHistory::create([
             'order_id' => $order->id,
             'status' => $targetStatus->value,

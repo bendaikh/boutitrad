@@ -652,6 +652,11 @@ class OrderController extends Controller
         $order->update($updates);
         $order->refresh();
 
+        if ($status === OrderStatus::Livree) {
+            $order->markAsPaidOnDelivery(auth()->id());
+            $order->refresh();
+        }
+
         $this->orderStock->restoreIfReleased($order, $previousStatus, auth()->user());
 
         $this->commissionService->syncAfterStatusChange($order, $previousStatus, $status);
